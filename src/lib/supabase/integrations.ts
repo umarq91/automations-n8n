@@ -3,7 +3,6 @@ import type {
   Integration,
   IntegrationProvider,
   IntegrationCredentials,
-  ShopifyCredentials,
   ReamazeCredentials,
 } from './types';
 
@@ -51,7 +50,31 @@ export async function deleteIntegration(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ── Credential testers (via Supabase Edge Function) ─────────────────────────
+// ── Shopify OAuth ────────────────────────────────────────────────────────────
+
+export type OAuthInitResult =
+  | { ok: true; url: string }
+  | { ok: false; message: string };
+
+export async function initiateShopifyOAuth(payload: {
+  org_id: string;
+  user_id: string;
+  shop_domain: string;
+  client_id: string;
+  client_secret: string;
+}): Promise<OAuthInitResult> {
+  const { data, error } = await supabase.functions.invoke('shopify-oauth-init', {
+    body: payload,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message ?? 'Failed to initiate Shopify connection.' };
+  }
+
+  return data as OAuthInitResult;
+}
+
+// ── Reamaze credential test (via Edge Function) ──────────────────────────────
 
 export type TestResult =
   | { ok: true; message: string }
@@ -59,7 +82,7 @@ export type TestResult =
 
 export async function testIntegrationCredentials(
   provider: IntegrationProvider,
-  credentials: ShopifyCredentials | ReamazeCredentials
+  credentials: ReamazeCredentials
 ): Promise<TestResult> {
   const { data, error } = await supabase.functions.invoke('test-integration', {
     body: { provider, credentials },

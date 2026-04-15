@@ -13,6 +13,7 @@ export interface Organization {
   owner_id: string | null;
   plan: 'free' | 'pro' | 'enterprise';
   status: 'active' | 'inactive' | 'suspended';
+  is_under_maintenance: boolean;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -42,7 +43,10 @@ export type IntegrationProvider = 'shopify' | 'reamaze';
 
 export interface ShopifyCredentials {
   shop_domain: string;
-  access_token: string;
+  client_id: string;
+  client_secret: string;
+  access_token?: string;
+  scope?: string;
 }
 
 export interface ReamazeCredentials {
@@ -52,6 +56,22 @@ export interface ReamazeCredentials {
 }
 
 export type IntegrationCredentials = ShopifyCredentials | ReamazeCredentials;
+
+export interface DbEmailTemplate {
+  id: string;
+  organization_id: string | null;
+  name: string;
+  category: string;
+  subject: string;
+  description: string;
+  html_body: string;
+  variables: string[];
+  tags: string[];
+  is_default: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Integration {
   id: string;

@@ -80,6 +80,7 @@ export default function OrganizationSection() {
     try {
       await updateUserProfile(user.id, { full_name: trimmed });
       await refreshUser();
+      if (activeOrg) fetchMembers(activeOrg.id);
       setEditingName(false);
     } catch (err: any) {
       setNameError(err?.message ?? 'Failed to save name.');
@@ -88,14 +89,18 @@ export default function OrganizationSection() {
     }
   }
 
-  useEffect(() => {
-    if (!activeOrg) return;
+  function fetchMembers(orgId: string) {
     setLoading(true);
     setError(null);
-    getOrganizationMembers(activeOrg.id)
+    getOrganizationMembers(orgId)
       .then(setMembers)
       .catch(err => setError(err?.message ?? 'Failed to load members.'))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    if (!activeOrg) return;
+    fetchMembers(activeOrg.id);
   }, [activeOrg?.id]);
 
   if (!activeOrg) {

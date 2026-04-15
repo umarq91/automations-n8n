@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, Settings, Zap, ChevronRight, Building2, Plug, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Mail, Settings, Zap, ChevronRight, Building2, Plug, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'settings';
@@ -16,8 +16,10 @@ const navItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
   { id: 'settings',      label: 'Settings',        icon: Settings },
 ];
 
+const MAINTENANCE_MESSAGE = 'We are currently performing scheduled maintenance. Some features may be unavailable.';
+
 export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
-  const { user } = useAuth();
+  const { user, activeOrg } = useAuth();
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -60,26 +62,40 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
 
       {/* Bottom */}
       <div className="px-4 py-4 border-t border-ds-borderSoft space-y-3">
-        {/* System status pill */}
-        <div className="bg-ds-surface2 rounded-xl px-3.5 py-3 border border-ds-borderSoft">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-ds-muted text-[11px] font-medium">System Status</span>
-            <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-              Live
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-ds-muted">Emails today</span>
-              <span className="text-ds-text2 font-medium">1,284</span>
+        {/* Org status pill */}
+        {activeOrg && (
+          activeOrg.is_under_maintenance ? (
+            <div className="bg-amber-500/10 rounded-xl px-3.5 py-3 border border-amber-500/20">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <AlertTriangle size={12} className="text-amber-400 shrink-0" />
+                <span className="text-amber-400 text-[11px] font-semibold">Under Maintenance</span>
+              </div>
+              <p className="text-amber-400/70 text-[10px] leading-relaxed">{MAINTENANCE_MESSAGE}</p>
             </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-ds-muted">Delivery rate</span>
-              <span className="text-emerald-400 font-medium">98.1%</span>
+          ) : (
+            <div className="bg-ds-surface2 rounded-xl px-3.5 py-3 border border-ds-borderSoft">
+              <div className="flex items-center justify-between">
+                <span className="text-ds-muted text-[11px] font-medium">System Status</span>
+                {activeOrg.status === 'suspended' ? (
+                  <span className="flex items-center gap-1.5 text-[11px] text-red-400 font-medium">
+                    <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
+                    Suspended
+                  </span>
+                ) : activeOrg.status === 'inactive' ? (
+                  <span className="flex items-center gap-1.5 text-[11px] text-ds-muted font-medium">
+                    <span className="w-1.5 h-1.5 bg-ds-muted rounded-full" />
+                    Inactive
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                    Active
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
+          )
+        )}
 
         {/* User */}
         <button

@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
   Plug, CheckCircle2, AlertCircle, Loader2, X,
-  ShoppingBag, MessageCircle, Trash2, RefreshCw, Eye, EyeOff,
+  Trash2, RefreshCw, Eye, EyeOff, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getIntegrations,
   upsertIntegration,
   deleteIntegration,
+  initiateShopifyOAuth,
   testIntegrationCredentials,
   type TestResult,
+  type OAuthInitResult,
 } from '../lib/supabase/integrations';
 import type {
   Integration,
@@ -22,23 +24,39 @@ import type {
 const PROVIDERS = {
   shopify: {
     label: 'Shopify',
-    description: 'Connect your Shopify store to sync orders, products, and customers.',
-    icon: ShoppingBag,
+    description: 'Connect your Shopify store to sync orders, products, and customers via OAuth.',
+    logo: '/shopify.png',
+    logoSize: 'w-11 h-11',
     gradient: 'gradient-emerald',
     category: 'ecommerce',
-    auth_type: 'api_key',
+    auth_type: 'oauth2',
+    comingSoon: false,
   },
   reamaze: {
     label: 'Reamaze',
     description: 'Connect Reamaze to manage customer support conversations.',
-    icon: MessageCircle,
+    logo: '/reamaze.png',
+    logoSize: 'w-8 h-8',
     gradient: 'gradient-violet',
     category: 'support',
     auth_type: 'basic',
+    comingSoon: false,
+  },
+  monday: {
+    label: 'Monday.com',
+    description: 'Sync tasks, boards, and project data with your Monday.com workspace.',
+    logo: '/monday.png',
+    logoSize: 'w-8 h-8',
+    gradient: 'gradient-rose',
+    category: 'project-management',
+    auth_type: 'oauth2',
+    comingSoon: true,
   },
 } as const;
 
-// ── Credential forms ─────────────────────────────────────────────────────────
+type Provider = keyof typeof PROVIDERS;
+
+// ── Shopify OAuth form ───────────────────────────────────────────────────────
 
 function ShopifyForm({
   value,
@@ -49,9 +67,12 @@ function ShopifyForm({
   onChange: (v: ShopifyCredentials) => void;
   disabled: boolean;
 }) {
-  const [showToken, setShowToken] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
   return (
     <div className="space-y-4">
+      <div className="px-3.5 py-3 bg-ds-surface2 border border-ds-borderSoft rounded-xl text-xs text-ds-muted leading-relaxed">
+        Enter your Shopify Partner App credentials. You'll be redirected to Shopify to authorize access.
+      </div>
       <div>
         <label className="label">Shop Domain</label>
         <input
@@ -62,35 +83,51 @@ function ShopifyForm({
           disabled={disabled}
           autoComplete="off"
         />
-        <p className="text-ds-muted text-[11px] mt-1.5">Your Shopify store URL (include .myshopify.com)</p>
+        <p className="text-ds-muted text-[11px] mt-1.5">Your store's .myshopify.com URL</p>
       </div>
       <div>
-        <label className="label">Admin API Access Token</label>
+        <label className="label">Client ID</label>
+        <input
+          className="input"
+          placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          value={value.client_id}
+          onChange={e => onChange({ ...value, client_id: e.target.value.trim() })}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        <p className="text-ds-muted text-[11px] mt-1.5">
+          Found in your Shopify Partner App → App setup → Client ID
+        </p>
+      </div>
+      <div>
+        <label className="label">Client Secret</label>
         <div className="relative">
           <input
             className="input pr-10"
-            type={showToken ? 'text' : 'password'}
-            placeholder="shpat_xxxxxxxxxxxxxxxxxxxx"
-            value={value.access_token}
-            onChange={e => onChange({ ...value, access_token: e.target.value.trim() })}
+            type={showSecret ? 'text' : 'password'}
+            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            value={value.client_secret}
+            onChange={e => onChange({ ...value, client_secret: e.target.value.trim() })}
             disabled={disabled}
             autoComplete="new-password"
           />
           <button
             type="button"
-            onClick={() => setShowToken(v => !v)}
+            onClick={() => setShowSecret(v => !v)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-ds-muted hover:text-ds-text2 transition"
           >
-            {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
         <p className="text-ds-muted text-[11px] mt-1.5">
-          Found in Shopify Admin → Apps → Develop apps → your app → Admin API access token
+          Found in your Shopify Partner App → App setup → Client secret
         </p>
       </div>
     </div>
   );
 }
+
+// ── Reamaze form ─────────────────────────────────────────────────────────────
 
 function ReamazeForm({
   value,
@@ -170,8 +207,6 @@ function ReamazeForm({
 
 // ── Connect modal ────────────────────────────────────────────────────────────
 
-type Provider = keyof typeof PROVIDERS;
-
 function ConnectModal({
   provider,
   existing,
@@ -192,7 +227,7 @@ function ConnectModal({
   const [shopifyCreds, setShopifyCreds] = useState<ShopifyCredentials>(
     provider === 'shopify' && existing
       ? (existing.credentials as ShopifyCredentials)
-      : { shop_domain: '', access_token: '' }
+      : { shop_domain: '', client_id: '', client_secret: '' }
   );
   const [reamazeCreds, setReamazeCreds] = useState<ReamazeCredentials>(
     provider === 'reamaze' && existing
@@ -200,70 +235,94 @@ function ConnectModal({
       : { subdomain: '', email: '', api_key: '' }
   );
 
-  const [status, setStatus] = useState<'idle' | 'testing' | 'saving' | 'done'>('idle');
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [status, setStatus] = useState<'idle' | 'working' | 'done'>('idle');
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  const busy = status === 'testing' || status === 'saving';
+  const busy = status === 'working';
 
   function isValid(): boolean {
     if (provider === 'shopify') {
-      return !!shopifyCreds.shop_domain && !!shopifyCreds.access_token;
+      return !!shopifyCreds.shop_domain && !!shopifyCreds.client_id && !!shopifyCreds.client_secret;
     }
     return !!reamazeCreds.subdomain && !!reamazeCreds.email && !!reamazeCreds.api_key;
   }
 
-  async function handleSave() {
-    if (!isValid()) return;
-
-    setStatus('testing');
-    setTestResult(null);
-
-    const creds = provider === 'shopify' ? shopifyCreds : reamazeCreds;
-    const result = await testIntegrationCredentials(provider, creds);
-
-    setTestResult(result);
-
-    if (!result.ok) {
+  async function handleShopify() {
+    setStatus('working');
+    setResult(null);
+    const res: OAuthInitResult = await initiateShopifyOAuth({
+      org_id: orgId,
+      user_id: userId,
+      shop_domain: shopifyCreds.shop_domain,
+      client_id: shopifyCreds.client_id,
+      client_secret: shopifyCreds.client_secret,
+    });
+    if (!res.ok) {
+      setResult({ ok: false, message: res.message });
       setStatus('idle');
       return;
     }
+    // Redirect to Shopify OAuth — page will return via callback
+    window.location.href = res.url;
+  }
 
-    setStatus('saving');
+  async function handleReamaze() {
+    setStatus('working');
+    setResult(null);
+    const testRes: TestResult = await testIntegrationCredentials('reamaze', reamazeCreds);
+    setResult(testRes);
+    if (!testRes.ok) {
+      setStatus('idle');
+      return;
+    }
     try {
       const saved = await upsertIntegration({
         ...(existing ? { id: existing.id } : {}),
         organization_id: orgId,
-        provider,
+        provider: 'reamaze',
         category: meta.category,
         auth_type: meta.auth_type,
-        credentials: creds,
+        credentials: reamazeCreds,
         created_by: userId,
       });
       setStatus('done');
       onSaved(saved);
     } catch (err: any) {
-      setTestResult({ ok: false, message: err?.message ?? 'Failed to save integration.' });
+      setResult({ ok: false, message: err?.message ?? 'Failed to save integration.' });
       setStatus('idle');
     }
   }
 
+  function handleSubmit() {
+    if (provider === 'shopify') handleShopify();
+    else handleReamaze();
+  }
+
+  const buttonLabel = () => {
+    if (busy) return provider === 'shopify' ? 'Redirecting…' : 'Connecting…';
+    if (status === 'done') return 'Connected!';
+    if (provider === 'shopify') return 'Connect with Shopify';
+    return 'Test & Connect';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={!busy ? onClose : undefined} />
 
       <div className="relative w-full max-w-md bg-ds-surface border border-ds-border rounded-2xl shadow-card animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-ds-borderSoft">
           <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl ${meta.gradient} flex items-center justify-center shadow-accent-glow`}>
-              <meta.icon size={18} className="text-white" />
+            <div className="w-9 h-9 rounded-xl bg-ds-surface2 border border-ds-borderSoft flex items-center justify-center">
+              <img src={meta.logo} alt={meta.label} className={`${meta.logoSize} object-contain scale-75`} />
             </div>
             <div>
               <h3 className="font-semibold text-ds-text text-sm">
                 {existing ? 'Reconfigure' : 'Connect'} {meta.label}
               </h3>
-              <p className="text-ds-muted text-[11px] mt-0.5">Enter your credentials below</p>
+              <p className="text-ds-muted text-[11px] mt-0.5">
+                {provider === 'shopify' ? 'OAuth 2.0 — you\'ll be redirected to authorize' : 'Enter your credentials below'}
+              </p>
             </div>
           </div>
           <button
@@ -283,42 +342,36 @@ function ConnectModal({
             <ReamazeForm value={reamazeCreds} onChange={setReamazeCreds} disabled={busy} />
           )}
 
-          {/* Test result feedback */}
-          {testResult && (
+          {result && (
             <div
               className={`mt-4 flex items-start gap-2.5 px-4 py-3 rounded-xl text-sm border ${
-                testResult.ok
+                result.ok
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                   : 'bg-red-500/10 text-red-400 border-red-500/20'
               }`}
             >
-              {testResult.ok ? (
-                <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle size={15} className="shrink-0 mt-0.5" />
-              )}
-              <span className="leading-snug">{testResult.message}</span>
+              {result.ok
+                ? <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+                : <AlertCircle size={15} className="shrink-0 mt-0.5" />
+              }
+              <span className="leading-snug">{result.message}</span>
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-ds-borderSoft flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            disabled={busy}
-            className="btn-secondary disabled:opacity-50"
-          >
+          <button onClick={onClose} disabled={busy} className="btn-secondary disabled:opacity-50">
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            onClick={handleSubmit}
             disabled={busy || !isValid() || status === 'done'}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {status === 'testing' && <Loader2 size={14} className="animate-spin" />}
-            {status === 'saving' && <Loader2 size={14} className="animate-spin" />}
-            {status === 'testing' ? 'Testing…' : status === 'saving' ? 'Saving…' : status === 'done' ? 'Saved!' : 'Test & Save'}
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            {provider === 'shopify' && !busy && <ExternalLink size={14} />}
+            {buttonLabel()}
           </button>
         </div>
       </div>
@@ -340,8 +393,8 @@ function IntegrationCard({
   onDelete: (id: string) => void;
 }) {
   const meta = PROVIDERS[provider];
-  const Icon = meta.icon;
-  const connected = !!integration;
+  const comingSoon = meta.comingSoon;
+  const connected = !comingSoon && !!integration?.is_active;
   const [deleting, setDeleting] = useState(false);
 
   async function handleDelete() {
@@ -356,30 +409,30 @@ function IntegrationCard({
   }
 
   return (
-    <div className="card p-6 flex flex-col gap-5">
-      {/* Top row */}
+    <div className={`card p-6 flex flex-col gap-5 relative ${comingSoon ? 'opacity-60' : ''}`}>
+      {comingSoon && (
+        <div className="absolute top-4 right-4">
+          <span className="badge bg-ds-hover text-ds-muted border border-ds-border text-[10px] uppercase tracking-widest">
+            Coming Soon
+          </span>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3.5">
-          <div className={`w-12 h-12 rounded-2xl ${meta.gradient} flex items-center justify-center flex-shrink-0 shadow-accent-glow`}>
-            <Icon size={22} className="text-white" />
+          <div className="w-12 h-12 rounded-2xl bg-ds-surface2 border border-ds-borderSoft flex items-center justify-center flex-shrink-0">
+            <img src={meta.logo} alt={meta.label} className={`${meta.logoSize} object-contain`} />
           </div>
           <div>
             <p className="font-semibold text-ds-text text-sm leading-tight">{meta.label}</p>
-            <span
-              className={`inline-flex items-center gap-1.5 text-xs font-medium mt-1 ${
-                connected ? 'text-emerald-400' : 'text-ds-muted'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  connected ? 'bg-emerald-400' : 'bg-ds-border'
-                }`}
-              />
-              {connected ? 'Connected' : 'Not connected'}
-            </span>
+            {!comingSoon && (
+              <span className={`inline-flex items-center gap-1.5 text-xs font-medium mt-1 ${connected ? 'text-emerald-400' : 'text-ds-muted'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-ds-border'}`} />
+                {connected ? 'Connected' : 'Not connected'}
+              </span>
+            )}
           </div>
         </div>
-
         {connected && (
           <button
             onClick={handleDelete}
@@ -392,17 +445,19 @@ function IntegrationCard({
         )}
       </div>
 
-      {/* Description */}
       <p className="text-ds-muted text-xs leading-relaxed flex-1">{meta.description}</p>
 
-      {/* Connected details */}
       {connected && provider === 'shopify' && (
         <div className="bg-ds-surface2 rounded-xl px-3.5 py-3 border border-ds-borderSoft text-xs space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-ds-muted">Shop</span>
+            <span className="text-ds-muted">Store</span>
             <span className="text-ds-text2 font-mono truncate max-w-[160px]">
               {(integration.credentials as ShopifyCredentials).shop_domain}
             </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-ds-muted">Scopes</span>
+            <span className="text-emerald-400 font-medium">Authorized</span>
           </div>
         </div>
       )}
@@ -423,20 +478,19 @@ function IntegrationCard({
         </div>
       )}
 
-      {/* Action button */}
       <button
-        onClick={onConnect}
-        className={connected ? 'btn-secondary w-full justify-center' : 'btn-primary w-full justify-center'}
+        onClick={!comingSoon ? onConnect : undefined}
+        disabled={comingSoon}
+        className={`w-full justify-center disabled:cursor-not-allowed ${
+          comingSoon ? 'btn-secondary opacity-50' : connected ? 'btn-secondary' : 'btn-primary'
+        }`}
       >
-        {connected ? (
-          <>
-            <RefreshCw size={14} /> Reconfigure
-          </>
-        ) : (
-          <>
-            <Plug size={14} /> Connect
-          </>
-        )}
+        {comingSoon
+          ? 'Coming Soon'
+          : connected
+          ? <><RefreshCw size={14} /> Reconfigure</>
+          : <><Plug size={14} /> Connect</>
+        }
       </button>
     </div>
   );
@@ -450,6 +504,21 @@ export default function IntegrationsSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalProvider, setModalProvider] = useState<Provider | null>(null);
+  const [oauthBanner, setOauthBanner] = useState<'success' | 'error' | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  // Detect return from Shopify OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shopify_connected') === '1') {
+      setOauthBanner('success');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('shopify_error')) {
+      setOauthError(decodeURIComponent(params.get('shopify_error')!));
+      setOauthBanner('error');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (!activeOrg) return;
@@ -494,9 +563,8 @@ export default function IntegrationsSection() {
     setIntegrations(prev => prev.filter(i => i.id !== id));
   }
 
-  const connectedCount = (Object.keys(PROVIDERS) as Provider[]).filter(
-    p => !!getIntegration(p)
-  ).length;
+  const activeProviders = (Object.keys(PROVIDERS) as Provider[]).filter(p => !PROVIDERS[p].comingSoon);
+  const connectedCount = activeProviders.filter(p => !!getIntegration(p)?.is_active).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -511,12 +579,36 @@ export default function IntegrationsSection() {
         <div className="flex items-center gap-2 px-3.5 py-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl">
           <span className="w-2 h-2 rounded-full bg-ds-accent" />
           <span className="text-ds-text2 text-xs font-medium">
-            {connectedCount} / {Object.keys(PROVIDERS).length} connected
+            {connectedCount} / {activeProviders.length} connected
           </span>
         </div>
       </div>
 
-      {/* Error */}
+      {/* OAuth return banners */}
+      {oauthBanner === 'success' && (
+        <div className="flex items-center justify-between gap-2.5 px-4 py-3 rounded-xl bg-emerald-500/10 text-emerald-400 text-sm border border-emerald-500/20">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={15} className="shrink-0" />
+            Shopify connected successfully! Your store is now authorized.
+          </div>
+          <button onClick={() => setOauthBanner(null)} className="text-emerald-400/60 hover:text-emerald-400 transition">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+      {oauthBanner === 'error' && (
+        <div className="flex items-center justify-between gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 text-red-400 text-sm border border-red-500/20">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle size={15} className="shrink-0" />
+            {oauthError ?? 'Shopify connection failed. Please try again.'}
+          </div>
+          <button onClick={() => setOauthBanner(null)} className="text-red-400/60 hover:text-red-400 transition">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Load error */}
       {error && (
         <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 text-red-400 text-sm border border-red-500/20">
           <AlertCircle size={15} className="shrink-0" />
@@ -524,7 +616,6 @@ export default function IntegrationsSection() {
         </div>
       )}
 
-      {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-24 gap-2 text-ds-muted">
           <Loader2 size={18} className="animate-spin" />
@@ -532,7 +623,6 @@ export default function IntegrationsSection() {
         </div>
       )}
 
-      {/* Grid */}
       {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {(Object.keys(PROVIDERS) as Provider[]).map(provider => (
@@ -547,7 +637,6 @@ export default function IntegrationsSection() {
         </div>
       )}
 
-      {/* Modal */}
       {modalProvider && (
         <ConnectModal
           provider={modalProvider}

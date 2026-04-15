@@ -27,6 +27,7 @@ export async function updateUserProfile(
   userId: string,
   updates: Partial<Pick<User, 'full_name' | 'avatar_url'>>
 ): Promise<User> {
+  // Update public.users
   const { data, error } = await supabase
     .from('users')
     .update(updates as any)
@@ -35,5 +36,15 @@ export async function updateUserProfile(
     .single();
 
   if (error) throw error;
+
+  // Sync the same fields into auth.users user_metadata so they
+  // survive the next login's upsertUserProfile sync.
+  const metaUpdates: Record<string, unknown> = {};
+  if (updates.full_name !== undefined) metaUpdates.full_name = updates.full_name;
+  if (updates.avatar_url !== undefined) metaUpdates.avatar_url = updates.avatar_url;
+  if (Object.keys(metaUpdates).length > 0) {
+    await supabase.auth.updateUser({ data: metaUpdates });
+  }
+
   return data as User;
 }

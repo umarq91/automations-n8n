@@ -1,76 +1,83 @@
-import { useState } from 'react';
-import { X, Search, Send, Eye, EyeOff, ChevronLeft, Check, Mail } from 'lucide-react';
-import { defaultTemplates, CATEGORY_COLORS, type EmailTemplate } from '../data/templates';
+import { useEffect, useRef, useState } from 'react';
+import { X, Search, Send, Eye, Code2, ChevronLeft, Check, Mail } from 'lucide-react';
+import type { DbEmailTemplate } from '../lib/supabase/types';
+
+const CATEGORY_COLORS: Record<string, string> = {
+  Transactional:      'bg-indigo-100 text-indigo-700',
+  'Returns & Refunds':'bg-amber-100  text-amber-700',
+  Financial:          'bg-emerald-100 text-emerald-700',
+  Support:            'bg-blue-100   text-blue-700',
+  Marketing:          'bg-pink-100   text-pink-700',
+  Security:           'bg-red-100    text-red-700',
+  Operations:         'bg-slate-100  text-slate-700',
+  B2B:                'bg-violet-100 text-violet-700',
+};
 
 interface SendEmailModalProps {
   toEmail?: string;
   toName?: string;
+  templates?: DbEmailTemplate[];
   onClose: () => void;
 }
 
 type Step = 'select' | 'compose';
 
-export default function SendEmailModal({ toEmail = '', toName = '', onClose }: SendEmailModalProps) {
-  const [step, setStep] = useState<Step>(toEmail ? 'select' : 'select');
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+export default function SendEmailModal({
+  toEmail = '',
+  toName = '',
+  templates = [],
+  onClose,
+}: SendEmailModalProps) {
+  const [step, setStep]                   = useState<Step>('select');
+  const [selected, setSelected]           = useState<DbEmailTemplate | null>(null);
+  const [searchTerm, setSearchTerm]       = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [showPreview, setShowPreview] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [bodyTab, setBodyTab]             = useState<'preview' | 'code'>('preview');
+  const [sent, setSent]                   = useState(false);
 
   const [form, setForm] = useState({
     to: toEmail,
     subject: '',
-    content: '',
+    html_body: '',
     variables: {} as Record<string, string>,
   });
 
-  const allCategories = ['All', ...Array.from(new Set(defaultTemplates.map((t) => t.category)))];
+  const allCategories = ['All', ...Array.from(new Set(templates.map((t) => t.category)))];
 
-  const filteredTemplates = defaultTemplates.filter((t) => {
-    const matchesSearch =
-      t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'All' || t.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+  const filtered = templates.filter((t) => {
+    const q = searchTerm.toLowerCase();
+    const matchSearch =
+      t.name.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      t.category.toLowerCase().includes(q);
+    return matchSearch && (categoryFilter === 'All' || t.category === categoryFilter);
   });
 
-  const handleSelectTemplate = (template: EmailTemplate) => {
-    const initialVars: Record<string, string> = {};
-    template.variables.forEach((v) => {
-      if (v === 'customer_name' && toName) initialVars[v] = toName;
-      else initialVars[v] = '';
-    });
-    setSelectedTemplate(template);
-    setForm({
-      to: toEmail,
-      subject: template.subject,
-      content: template.content,
-      variables: initialVars,
-    });
+  const handleSelect = (t: DbEmailTemplate) => {
+    const vars: Record<string, string> = {};
+    t.variables.forEach((v) => { vars[v] = v === 'customer_name' && toName ? toName : ''; });
+    setSelected(t);
+    setForm({ to: toEmail, subject: t.subject, html_body: t.html_body, variables: vars });
     setStep('compose');
   };
 
-  const resolveContent = (text: string) => {
-    let result = text;
-    Object.entries(form.variables).forEach(([key, value]) => {
-      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || `{{${key}}}`);
+  const resolvedHtml = (() => {
+    let html = form.html_body;
+    Object.entries(form.variables).forEach(([k, v]) => {
+      html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || `{{${k}}}`);
     });
-    return result;
-  };
+    return html;
+  })();
 
   const handleSend = () => {
     setSent(true);
-    setTimeout(() => {
-      setSent(false);
-      onClose();
-    }, 1800);
+    setTimeout(() => { setSent(false); onClose(); }, 1800);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-fade-in">
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -92,27 +99,23 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
               {toEmail && <p className="text-xs text-slate-400">To: {toEmail}</p>}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
-          >
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        {/* Step 1: Template Selection */}
+        {/* Step 1 — Template selection */}
         {step === 'select' && (
           <div className="flex-1 overflow-hidden flex flex-col">
-            {/* Search + filter */}
             <div className="px-6 pt-4 pb-3 space-y-3 flex-shrink-0">
               <div className="relative">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search templates..."
+                  placeholder="Search templates…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input pl-9"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pl-9 text-sm outline-none focus:border-indigo-400"
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -132,26 +135,25 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
               </div>
             </div>
 
-            {/* Template list */}
             <div className="flex-1 overflow-y-auto px-6 pb-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {filteredTemplates.map((template) => (
+                {filtered.map((t) => (
                   <button
-                    key={template.id}
-                    onClick={() => handleSelectTemplate(template)}
+                    key={t.id}
+                    onClick={() => handleSelect(t)}
                     className="text-left p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <p className="font-semibold text-slate-800 text-sm group-hover:text-indigo-700 transition-colors leading-tight">
-                        {template.name}
+                        {t.name}
                       </p>
-                      <span className={`badge flex-shrink-0 ${CATEGORY_COLORS[template.category]}`}>
-                        {template.category}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${CATEGORY_COLORS[t.category] ?? 'bg-slate-100 text-slate-600'}`}>
+                        {t.category}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{template.description}</p>
+                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{t.description}</p>
                     <div className="flex gap-1 mt-2 flex-wrap">
-                      {template.tags.slice(0, 3).map((tag) => (
+                      {t.tags.slice(0, 3).map((tag) => (
                         <span key={tag} className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
                           #{tag}
                         </span>
@@ -159,7 +161,7 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
                     </div>
                   </button>
                 ))}
-                {filteredTemplates.length === 0 && (
+                {filtered.length === 0 && (
                   <div className="col-span-2 py-12 text-center text-slate-400">
                     <Mail size={32} className="mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No templates found</p>
@@ -169,12 +171,11 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
               </div>
             </div>
 
-            {/* Or compose from scratch */}
             <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
               <button
                 onClick={() => {
-                  setSelectedTemplate(null);
-                  setForm({ to: toEmail, subject: '', content: '', variables: {} });
+                  setSelected(null);
+                  setForm({ to: toEmail, subject: '', html_body: '', variables: {} });
                   setStep('compose');
                 }}
                 className="w-full py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/20 transition-all text-sm font-medium"
@@ -185,54 +186,52 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
           </div>
         )}
 
-        {/* Step 2: Compose */}
+        {/* Step 2 — Compose */}
         {step === 'compose' && (
           <div className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {/* To field */}
               <div>
-                <label className="label">To</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">To</label>
                 <input
                   type="email"
                   value={form.to}
                   onChange={(e) => setForm({ ...form, to: e.target.value })}
                   placeholder="recipient@example.com"
-                  className="input"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
                 />
               </div>
 
-              {/* Subject */}
               <div>
-                <label className="label">Subject</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subject</label>
                 <input
                   type="text"
                   value={form.subject}
                   onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  placeholder="Email subject..."
-                  className="input"
+                  placeholder="Email subject…"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
                 />
               </div>
 
-              {/* Variables */}
-              {selectedTemplate && selectedTemplate.variables.length > 0 && (
+              {/* Variable fill-in */}
+              {selected && selected.variables.length > 0 && (
                 <div>
-                  <label className="label">Template Variables</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Template Variables</label>
                   <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                    <p className="text-xs text-slate-500 mb-3">Fill in the dynamic fields. They'll be inserted into the email automatically.</p>
+                    <p className="text-xs text-slate-500">Fill in the dynamic fields — they'll be replaced in the HTML automatically.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {selectedTemplate.variables.map((variable) => (
-                        <div key={variable}>
+                      {selected.variables.map((v) => (
+                        <div key={v}>
                           <label className="block text-xs text-slate-500 mb-1">
-                            <code className="bg-slate-200 px-1.5 py-0.5 rounded text-indigo-600 font-mono">{`{{${variable}}}`}</code>
+                            <code className="bg-slate-200 px-1.5 py-0.5 rounded text-indigo-600 font-mono">{`{{${v}}}`}</code>
                           </label>
                           <input
                             type="text"
-                            value={form.variables[variable] || ''}
+                            value={form.variables[v] ?? ''}
                             onChange={(e) =>
-                              setForm({ ...form, variables: { ...form.variables, [variable]: e.target.value } })
+                              setForm({ ...form, variables: { ...form.variables, [v]: e.target.value } })
                             }
-                            placeholder={variable.replace(/_/g, ' ')}
-                            className="input text-xs"
+                            placeholder={v.replace(/_/g, ' ')}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-400"
                           />
                         </div>
                       ))}
@@ -241,34 +240,38 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
                 </div>
               )}
 
-              {/* Content */}
+              {/* Body preview / code */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="label mb-0">Email Body</label>
-                  <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                  >
-                    {showPreview ? <EyeOff size={13} /> : <Eye size={13} />}
-                    {showPreview ? 'Edit mode' : 'Preview'}
-                  </button>
-                </div>
-                {showPreview ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                    <div className="text-xs text-slate-500 mb-3 pb-3 border-b border-slate-200">
-                      <span className="font-semibold">Subject:</span> {resolveContent(form.subject) || '(no subject)'}
-                    </div>
-                    <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
-                      {resolveContent(form.content) || '(no content)'}
-                    </pre>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-slate-600">Email Body</label>
+                  <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setBodyTab('preview')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        bodyTab === 'preview' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+                      }`}
+                    >
+                      <Eye size={11} /> Preview
+                    </button>
+                    <button
+                      onClick={() => setBodyTab('code')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        bodyTab === 'code' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+                      }`}
+                    >
+                      <Code2 size={11} /> HTML
+                    </button>
                   </div>
+                </div>
+                {bodyTab === 'preview' ? (
+                  <ModalHtmlPreview html={resolvedHtml} />
                 ) : (
                   <textarea
-                    value={form.content}
-                    onChange={(e) => setForm({ ...form, content: e.target.value })}
-                    placeholder="Write your email content here..."
+                    value={form.html_body}
+                    onChange={(e) => setForm({ ...form, html_body: e.target.value })}
+                    placeholder="HTML email body…"
                     rows={10}
-                    className="input font-mono text-xs leading-relaxed resize-none"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-3 text-xs font-mono outline-none focus:border-indigo-400 resize-none leading-relaxed"
                   />
                 )}
               </div>
@@ -277,36 +280,52 @@ export default function SendEmailModal({ toEmail = '', toName = '', onClose }: S
             {/* Footer */}
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
               <div className="text-xs text-slate-400">
-                {selectedTemplate ? (
-                  <span>Template: <span className="font-medium text-slate-600">{selectedTemplate.name}</span></span>
-                ) : (
-                  <span>Custom compose</span>
-                )}
+                {selected
+                  ? <span>Template: <span className="font-medium text-slate-600">{selected.name}</span></span>
+                  : <span>Custom compose</span>}
               </div>
               <div className="flex gap-3">
-                <button onClick={onClose} className="btn-secondary">
+                <button onClick={onClose} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
                   Cancel
                 </button>
                 <button
                   onClick={handleSend}
                   disabled={!form.to || !form.subject || sent}
-                  className={`btn-primary transition-all ${sent ? 'bg-emerald-600 hover:bg-emerald-600' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    sent ? 'bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
-                  {sent ? (
-                    <>
-                      <Check size={16} /> Sent!
-                    </>
-                  ) : (
-                    <>
-                      <Send size={16} /> Send Email
-                    </>
-                  )}
+                  {sent ? <><Check size={15} /> Sent!</> : <><Send size={15} /> Send Email</>}
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ModalHtmlPreview({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(html || '<p style="color:#9ca3af;font-family:sans-serif;padding:24px 32px;">No content yet. Fill in variables or switch to HTML mode.</p>');
+    doc.close();
+  }, [html]);
+
+  return (
+    <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+      <iframe
+        ref={iframeRef}
+        sandbox="allow-same-origin"
+        title="Email preview"
+        style={{ width: '100%', height: 280, border: 'none', display: 'block' }}
+      />
     </div>
   );
 }
