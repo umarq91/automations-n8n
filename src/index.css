@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #0B0F14;
+    color: #E6EDF3;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #263244 transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #263244;
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  /* ── Cards ─────────────────────────────── */
+  .card {
+    @apply bg-[#111823] rounded-2xl border border-[#263244] shadow-card;
+  }
+
+  .card-elevated {
+    @apply bg-[#182230] rounded-2xl border border-[#263244] shadow-card;
+  }
+
+  /* ── Sidebar nav items ──────────────────── */
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer;
+  }
+  .sidebar-nav-item.active {
+    @apply bg-ds-accent/10 text-ds-accent;
+  }
+  .sidebar-nav-item.inactive {
+    @apply text-ds-text2 hover:text-ds-text hover:bg-ds-hover;
+  }
+
+  /* ── Badges ─────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* ── Buttons ─────────────────────────────── */
+  .btn-primary {
+    @apply flex items-center gap-2 px-4 py-2 bg-ds-accent text-white rounded-xl hover:bg-ds-accentHover
+           active:bg-ds-accentGlow transition-all font-medium text-sm shadow-accent-glow;
+  }
+  .btn-secondary {
+    @apply flex items-center gap-2 px-4 py-2 bg-ds-hover text-ds-text2 rounded-xl
+           hover:bg-[#263244] hover:text-ds-text transition-all font-medium text-sm border border-ds-border;
+  }
+  .btn-ghost {
+    @apply flex items-center gap-2 px-3 py-2 text-ds-muted rounded-xl
+           hover:bg-ds-hover hover:text-ds-text2 transition-all text-sm;
+  }
+
+  /* ── Inputs ─────────────────────────────── */
+  .input {
+    @apply w-full px-3.5 py-2.5 bg-ds-surface2 border border-ds-border rounded-xl
+           text-sm text-ds-text placeholder-ds-muted
+           focus:outline-none focus:ring-2 focus:ring-ds-accent/30 focus:border-ds-accent/60 transition-all;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-ds-text2 uppercase tracking-wide mb-1.5;
+  }
+
+  /* ── Stat badge chips ───────────────────── */
+  .chip-up   { @apply bg-emerald-500/10 text-emerald-400; }
+  .chip-warn { @apply bg-amber-500/10 text-amber-400; }
+
+  /* ── Dividers ───────────────────────────── */
+  .divider { @apply border-ds-borderSoft; }
+
+  /* ── Gradients for icon blobs ───────────── */
+  .gradient-indigo  { background: linear-gradient(135deg, #4DA3FF 0%, #2B6FFF 100%); }
+  .gradient-emerald { background: linear-gradient(135deg, #34D399 0%, #059669 100%); }
+  .gradient-amber   { background: linear-gradient(135deg, #FBBF24 0%, #D97706 100%); }
+  .gradient-rose    { background: linear-gradient(135deg, #FB7185 0%, #E11D48 100%); }
+  .gradient-violet  { background: linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%); }
+
+  /* ── Fade-in animation ──────────────────── */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.25s ease-out both;
+  }
+}
