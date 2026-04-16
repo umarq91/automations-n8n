@@ -87,3 +87,15 @@ export interface Integration {
   updated_at: string;
 }
 
+export interface AiConfig {
+  id: string;
+  organization_id: string;
+  general_prompt: string | null;
+  tone: string | null;
+  rules: string[];
+  vector_namespace: string | null;
+  vector_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+

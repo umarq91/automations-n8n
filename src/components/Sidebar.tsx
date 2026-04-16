@@ -1,7 +1,7 @@
-import { Mail, Settings, Zap, ChevronRight, Building2, Plug, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'settings';
+export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config';
 
 interface SidebarProps {
   activeSection: ActiveSection;
@@ -9,10 +9,10 @@ interface SidebarProps {
 }
 
 const navItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
-  { id: 'email',         label: 'Email Templates', icon: Mail },
-  { id: 'integrations',  label: 'Integrations',   icon: Plug },
-  { id: 'organization',  label: 'Organization',    icon: Building2 },
-  { id: 'settings',      label: 'Settings',        icon: Settings },
+  { id: 'organization', label: 'Organization',    icon: Building2 },
+  { id: 'email',        label: 'Email Templates', icon: Mail },
+  { id: 'ai-config',   label: 'AI Settings',      icon: Bot },
+  { id: 'integrations', label: 'Integrations',    icon: Plug },
 ];
 
 const MAINTENANCE_MESSAGE = 'We are currently performing scheduled maintenance. Some features may be unavailable.';
