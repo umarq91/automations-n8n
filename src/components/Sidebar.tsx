@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, Settings, Zap, ChevronRight, Building2, Plug, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Mail, Settings, Zap, ChevronRight, Building2, Plug, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'settings';
@@ -9,7 +9,6 @@ interface SidebarProps {
 }
 
 const navItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
-  { id: 'overview',      label: 'Overview',       icon: LayoutDashboard },
   { id: 'email',         label: 'Email Templates', icon: Mail },
   { id: 'integrations',  label: 'Integrations',   icon: Plug },
   { id: 'organization',  label: 'Organization',    icon: Building2 },

@@ -12,7 +12,7 @@ function readSectionFromUrl(): ActiveSection {
   // Shopify OAuth callback — always land on integrations
   if (params.get('shopify_connected') || params.get('shopify_error')) return 'integrations';
   const tab = params.get('tab') as ActiveSection;
-  return VALID_SECTIONS.includes(tab) ? tab : 'overview';
+  return VALID_SECTIONS.includes(tab) ? tab : 'email';
 }
 
 function App() {
