@@ -255,11 +255,8 @@ export default function AIConfigSection() {
               </p>
             </div>
 
-            {/* ── Tone + Vector ──────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-              {/* Tone */}
-              <div className="card p-6">
+            {/* ── Tone ───────────────────────────────────────────────────── */}
+            <div className="card p-6">
                 <h2 className="text-sm font-semibold text-ds-text mb-0.5">Response Tone</h2>
                 <p className="text-ds-muted text-xs mb-4">How the AI should communicate with customers.</p>
                 <div className="flex flex-wrap gap-2">
@@ -294,39 +291,6 @@ export default function AIConfigSection() {
                   </p>
                 </div>
               </div>
-
-              {/* Vector config */}
-              <div className="card p-6 space-y-4">
-                <div>
-                  <h2 className="text-sm font-semibold text-ds-text mb-0.5">Vector Store</h2>
-                  <p className="text-ds-muted text-xs">
-                    Connect a vector namespace for RAG-based knowledge retrieval in your workflows.
-                  </p>
-                </div>
-                <div>
-                  <label className="label">Namespace</label>
-                  <input
-                    className="input font-mono bg-ds-hover text-ds-muted cursor-not-allowed select-all"
-                    value={form.vector_namespace || '—'}
-                    readOnly
-                  />
-                  <p className="text-ds-muted text-[11px] mt-1.5">
-                    The namespace in your vector store (Pinecone, Qdrant, etc.)
-                  </p>
-                </div>
-                <div>
-                  <label className="label">Index / Collection ID</label>
-                  <input
-                    className="input font-mono bg-ds-hover text-ds-muted cursor-not-allowed select-all"
-                    value={form.vector_id || '—'}
-                    readOnly
-                  />
-                  <p className="text-ds-muted text-[11px] mt-1.5">
-                    The specific index or collection to query.
-                  </p>
-                </div>
-              </div>
-            </div>
 
             {/* ── Rules ──────────────────────────────────────────────────── */}
             <div className="card p-6">

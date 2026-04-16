@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Trash2, Search, Mail, Tag, X, Loader2, AlertCircle,
-  Plus, Sparkles, ChevronDown, Save, Send,
+  Plus, Sparkles, ChevronDown, Save, Send, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -10,6 +10,7 @@ import {
   updateEmailTemplate,
   deleteEmailTemplate,
 } from '../lib/supabase/emailTemplates';
+import { sendTestEmail } from '../lib/supabase/emailSend';
 import type { DbEmailTemplate } from '../lib/supabase/types';
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -24,6 +25,10 @@ const CATEGORY_GROUPS = [
       'Order Not Found', 'Sizing Inquiry', 'Misdirected Email',
       'Repeat Contact', 'Privacy Breach', 'Positive Feedback',
     ],
+  },
+  {
+    label: 'Order Status',
+    items: ['Order Status'],
   },
   {
     label: 'Business',
@@ -49,6 +54,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Repeat Contact':     'bg-red-500/10    text-red-400',
   'Privacy Breach':     'bg-red-500/10    text-red-400',
   'Positive Feedback':  'bg-emerald-500/10 text-emerald-400',
+  'Order Status':                      'bg-blue-500/10   text-blue-400',
   Transactional:        'bg-indigo-500/10 text-indigo-400',
   'Returns & Refunds':  'bg-amber-500/10  text-amber-400',
   Financial:            'bg-emerald-500/10 text-emerald-400',
@@ -288,6 +294,7 @@ interface DetailProps {
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type TestStatus = 'idle' | 'sending' | 'sent' | 'error';
 
 function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
   const { user, activeOrg } = useAuth();
@@ -295,6 +302,8 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
   const [draft,      setDraft]      = useState<DbEmailTemplate>(template);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [testStatus, setTestStatus] = useState<TestStatus>('idle');
+  const [testError,  setTestError]  = useState<string | null>(null);
   const [varInput,   setVarInput]   = useState('');
   const [tagInput,   setTagInput]   = useState('');
   const isDefaultRef = useRef(template.is_default && template.organization_id === null);
@@ -339,8 +348,23 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
     }
   };
 
-  const handleTestEmail = () => {
-    // TODO: send test email to logged-in user
+  const handleTestEmail = async () => {
+    if (!user?.email || testStatus === 'sending') return;
+    setTestStatus('sending');
+    setTestError(null);
+    const result = await sendTestEmail({
+      to: user.email,
+      subject: draft.subject,
+      html_body: draft.html_body,
+    });
+    if (result.ok) {
+      setTestStatus('sent');
+      setTimeout(() => setTestStatus('idle'), 5000);
+    } else {
+      setTestStatus('error');
+      setTestError(result.message);
+      setTimeout(() => { setTestStatus('idle'); setTestError(null); }, 6000);
+    }
   };
 
   const addVar = () => {
@@ -386,11 +410,16 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
         {/* Test email */}
         <button
           onClick={handleTestEmail}
-          className="btn-secondary flex items-center gap-2 text-sm shrink-0"
-          title="Send a test email to yourself"
+          disabled={testStatus === 'sending' || testStatus === 'sent'}
+          className="btn-secondary flex items-center gap-2 text-sm shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+          title={`Send a test email to ${user?.email ?? 'yourself'}`}
         >
-          <Send size={14} />
-          Test Email
+          {testStatus === 'sending'
+            ? <><Loader2 size={14} className="animate-spin" /> Sending…</>
+            : testStatus === 'sent'
+            ? <><CheckCircle2 size={14} className="text-emerald-400" /> Sent!</>
+            : <><Send size={14} /> Test Email</>
+          }
         </button>
 
         {/* Save */}
@@ -420,6 +449,20 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
           </button>
         )}
       </div>
+
+      {/* Test email banner */}
+      {testStatus === 'sent' && (
+        <div className="flex items-center gap-2.5 px-5 py-3 bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-400 text-sm">
+          <CheckCircle2 size={15} className="shrink-0" />
+          Test email sent to <span className="font-medium">{user?.email}</span> — variables replaced with sample data.
+        </div>
+      )}
+      {testStatus === 'error' && testError && (
+        <div className="flex items-center gap-2.5 px-5 py-3 bg-red-500/10 border-b border-red-500/20 text-red-400 text-sm">
+          <AlertCircle size={15} className="shrink-0" />
+          {testError}
+        </div>
+      )}
 
       <div className="p-6 space-y-6">
 

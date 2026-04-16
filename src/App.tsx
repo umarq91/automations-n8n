@@ -141,18 +141,6 @@ function App() {
                   </div>
                 )}
 
-                {/* Search */}
-                <div className="hidden md:block relative w-[220px]">
-                  <Search
-                    size={13}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-ds-muted"
-                  />
-                  <input
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-ds-surface border border-ds-border text-xs text-ds-text2 placeholder:text-ds-muted focus:outline-none focus:ring-2 focus:ring-ds-accent/30 focus:border-ds-accent/50 transition"
-                    placeholder="Search templates, workflows…"
-                  />
-                </div>
-
                 {/* Avatar + sign out */}
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full gradient-indigo flex items-center justify-center text-[11px] font-bold text-white select-none shadow-accent-glow">
