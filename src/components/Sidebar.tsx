@@ -34,7 +34,7 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
             <Zap size={15} className="text-white" />
           </div>
           <div>
-            <p className="text-ds-text font-bold text-sm leading-tight tracking-tight">AgentFlow</p>
+            <p className="text-ds-text font-bold text-sm leading-tight tracking-tight">Automn</p>
             <p className="text-ds-muted text-[11px] mt-0.5">E-commerce AI Suite</p>
           </div>
         </div>

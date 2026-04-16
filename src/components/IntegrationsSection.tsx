@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plug, CheckCircle2, AlertCircle, Loader2, X,
   Trash2, RefreshCw, Eye, EyeOff, ExternalLink,
@@ -305,11 +306,13 @@ function ConnectModal({
     return 'Test & Connect';
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={!busy ? onClose : undefined} />
 
-      <div className="relative w-full max-w-md bg-ds-surface border border-ds-border rounded-2xl shadow-card animate-fade-in">
+      {/* pt-16 clears the sticky header; min-h-full + flex keeps it centered when short */}
+      <div className="relative min-h-full flex items-center justify-center p-4 pt-16 pb-8">
+      <div className="w-full max-w-md bg-ds-surface border border-ds-border rounded-2xl shadow-card animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-ds-borderSoft">
           <div className="flex items-center gap-3">
@@ -375,7 +378,9 @@ function ConnectModal({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -512,11 +517,15 @@ export default function IntegrationsSection() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('shopify_connected') === '1') {
       setOauthBanner('success');
-      window.history.replaceState({}, '', window.location.pathname);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('shopify_connected');
+      window.history.replaceState({}, '', url.toString());
     } else if (params.get('shopify_error')) {
       setOauthError(decodeURIComponent(params.get('shopify_error')!));
       setOauthBanner('error');
-      window.history.replaceState({}, '', window.location.pathname);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('shopify_error');
+      window.history.replaceState({}, '', url.toString());
     }
   }, []);
 

@@ -1,14 +1,49 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Search, LogOut, ChevronDown, Building2 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import Sidebar, { type ActiveSection } from './components/Sidebar';
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 
+const VALID_SECTIONS: ActiveSection[] = ['overview', 'email', 'organization', 'integrations', 'settings'];
+
+function readSectionFromUrl(): ActiveSection {
+  const params = new URLSearchParams(window.location.search);
+  // Shopify OAuth callback — always land on integrations
+  if (params.get('shopify_connected') || params.get('shopify_error')) return 'integrations';
+  const tab = params.get('tab') as ActiveSection;
+  return VALID_SECTIONS.includes(tab) ? tab : 'overview';
+}
+
 function App() {
   const { session, user, activeOrg, organizations, setActiveOrg, signOut, loading } = useAuth();
-  const [activeSection, setActiveSection] = useState<ActiveSection>('overview');
+  const [activeSection, setActiveSection] = useState<ActiveSection>(readSectionFromUrl);
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+
+  // Write ?tab= into the URL whenever the active section changes
+  const navigate = (section: ActiveSection) => {
+    setActiveSection(section);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', section);
+    window.history.pushState({}, '', url.toString());
+  };
+
+  // Seed the URL on first load if there's no ?tab= yet
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get('tab')) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', activeSection);
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep activeSection in sync with browser back / forward
+  useEffect(() => {
+    const onPop = () => setActiveSection(readSectionFromUrl());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   if (loading) {
     return (
@@ -28,7 +63,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-ds-bg text-ds-text">
-      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} />
+      <Sidebar activeSection={activeSection} onNavigate={navigate} />
 
       <div className="pl-60">
         {/* Header */}
@@ -36,7 +71,7 @@ function App() {
           <div className="px-6 py-3.5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h1 className="text-sm font-semibold text-ds-text">AI Agent Control Center</h1>
+                <h1 className="text-sm font-semibold text-ds-text">Automn</h1>
                 <p className="text-[11px] text-ds-muted mt-0.5">E-commerce automation · templates · workflows</p>
               </div>
 
@@ -112,7 +147,7 @@ function App() {
         {/* Main */}
         <main className="px-6 py-7 min-h-[calc(100vh-57px)]">
           <div className="max-w-7xl mx-auto">
-            <Dashboard activeSection={activeSection} onNavigate={setActiveSection} />
+            <Dashboard activeSection={activeSection} onNavigate={navigate} />
           </div>
         </main>
       </div>

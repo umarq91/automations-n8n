@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Trash2, Search, Mail, Tag, X, Loader2, AlertCircle, Plus, Sparkles } from 'lucide-react';
+import {
+  Trash2, Search, Mail, Tag, X, Loader2, AlertCircle,
+  Plus, Sparkles, ChevronDown, Save, Send,
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getEmailTemplates,
@@ -11,15 +14,22 @@ import type { DbEmailTemplate } from '../lib/supabase/types';
 
 // ── Category config ───────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  'Quality Issue', 'Wrong Item', 'Color Mismatch', 'Sizing Complaint',
-  'Missing Package', 'Partial Order', 'Refund Delayed', 'Active Dispute',
-  'Escalation Threat', 'Order Not Found', 'Sizing Inquiry', 'Shipping Delay',
-  'Customs Hold', 'Misdirected Email', 'Repeat Contact', 'Privacy Breach',
-  'Positive Feedback',
-  'Transactional', 'Returns & Refunds', 'Financial', 'Support',
-  'Marketing', 'Security', 'Operations', 'B2B',
-] as const;
+const CATEGORY_GROUPS = [
+  {
+    label: 'Customer Issues',
+    items: [
+      'Quality Issue', 'Wrong Item', 'Color Mismatch', 'Sizing Complaint',
+      'Missing Package', 'Partial Order', 'Shipping Delay', 'Customs Hold',
+      'Refund Delayed', 'Active Dispute', 'Escalation Threat',
+      'Order Not Found', 'Sizing Inquiry', 'Misdirected Email',
+      'Repeat Contact', 'Privacy Breach', 'Positive Feedback',
+    ],
+  },
+  {
+    label: 'Business',
+    items: ['Transactional', 'Returns & Refunds', 'Financial', 'Support', 'Marketing', 'Security', 'Operations', 'B2B'],
+  },
+];
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Quality Issue':      'bg-amber-500/10  text-amber-400',
@@ -48,6 +58,28 @@ const CATEGORY_COLORS: Record<string, string> = {
   Operations:           'bg-ds-hover      text-ds-text2',
   B2B:                  'bg-violet-500/10 text-violet-400',
 };
+
+// Convert snake_case variable names to friendly human-readable labels
+function varLabel(v: string): string {
+  const map: Record<string, string> = {
+    customer_name: 'Customer Name',
+    first_name: 'First Name',
+    last_name: 'Last Name',
+    order_id: 'Order ID',
+    order_number: 'Order #',
+    order_date: 'Order Date',
+    tracking_number: 'Tracking #',
+    product_name: 'Product Name',
+    company_name: 'Company',
+    support_agent: 'Agent Name',
+    refund_amount: 'Refund Amount',
+    ticket_id: 'Ticket ID',
+    email: 'Email Address',
+    store_name: 'Store Name',
+    issue_type: 'Issue Type',
+  };
+  return map[v] ?? v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -90,10 +122,6 @@ function EmailTemplatesSection() {
 
   const customCount = templates.filter((t) => !t.is_default).length;
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
-
-  // replacedId: when a global default is first edited, we create an org copy
-  // and replace the default entry in the list with the new copy
   const handleUpdate = (updated: DbEmailTemplate, replacedId?: string) => {
     setTemplates((prev) => {
       if (replacedId) return prev.map((t) => (t.id === replacedId ? updated : t));
@@ -122,8 +150,7 @@ function EmailTemplatesSection() {
       <div>
         <h1 className="text-2xl font-bold text-ds-text">Email Templates</h1>
         <p className="text-ds-muted text-sm mt-1">
-          Click any template to edit it. Changes save automatically to Supabase.
-          n8n reads the category and body to send the right email for each intent.
+          Your library of ready-to-send email replies. Select a template to edit it.
         </p>
       </div>
 
@@ -142,7 +169,7 @@ function EmailTemplatesSection() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ds-muted" />
             <input
               type="text"
-              placeholder="Search by name, category, description, or tags…"
+              placeholder="Search templates by name, category, or tag…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input pl-9"
@@ -153,8 +180,9 @@ function EmailTemplatesSection() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="input w-auto bg-ds-surface2"
           >
-            {categories.map((c) => (
-              <option key={c} value={c}>{c === 'All' ? 'All categories' : c}</option>
+            <option value="All">All categories</option>
+            {categories.filter((c) => c !== 'All').map((c) => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </div>
@@ -167,9 +195,11 @@ function EmailTemplatesSection() {
         <div className="xl:col-span-1 card overflow-hidden">
           <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center justify-between">
             <h3 className="font-semibold text-ds-text text-sm">
-              Library ({loading ? '…' : filtered.length})
+              Library {!loading && `(${filtered.length})`}
             </h3>
-            <span className="text-xs text-ds-muted">{customCount} edited</span>
+            {customCount > 0 && (
+              <span className="text-xs text-ds-muted">{customCount} edited</span>
+            )}
           </div>
 
           <div className="max-h-[680px] overflow-y-auto divide-y divide-ds-borderSoft">
@@ -182,14 +212,16 @@ function EmailTemplatesSection() {
                 <button
                   key={t.id}
                   onClick={() => setSelected(t)}
-                  className={`w-full text-left px-5 py-4 transition-colors ${
-                    selected?.id === t.id ? 'bg-ds-accent/5' : 'hover:bg-ds-hover/50'
+                  className={`w-full text-left px-4 py-4 transition-colors border-l-2 ${
+                    selected?.id === t.id
+                      ? 'bg-ds-accent/5 border-l-ds-accent'
+                      : 'border-l-transparent hover:bg-ds-hover/50'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-ds-text text-sm truncate">{t.name}</p>
-                      <p className="text-xs text-ds-muted mt-0.5 truncate">{t.description}</p>
+                      <p className="text-xs text-ds-muted mt-0.5 truncate">{t.description || 'No description'}</p>
                     </div>
                     <span className={`badge flex-shrink-0 ${CATEGORY_COLORS[t.category] ?? 'bg-ds-hover text-ds-text2'}`}>
                       {t.category}
@@ -229,14 +261,14 @@ function EmailTemplatesSection() {
               onUpdate={handleUpdate}
             />
           ) : (
-            <div className="card p-12 flex items-center justify-center h-full">
-              <div className="text-center max-w-md">
-                <div className="w-12 h-12 rounded-2xl bg-ds-accent/10 flex items-center justify-center mx-auto mb-4">
-                  <Mail size={20} className="text-ds-accent" />
+            <div className="card p-12 flex items-center justify-center h-full min-h-[400px]">
+              <div className="text-center max-w-sm">
+                <div className="w-14 h-14 rounded-2xl bg-ds-accent/10 flex items-center justify-center mx-auto mb-4">
+                  <Mail size={24} className="text-ds-accent" />
                 </div>
-                <p className="text-lg font-semibold text-ds-text mb-2">Pick a template</p>
+                <p className="text-lg font-semibold text-ds-text mb-2">Select a template to edit</p>
                 <p className="text-sm text-ds-muted">
-                  Select any template from the list. Click directly on the email body to edit text — changes save automatically.
+                  Choose any template from the list on the left. Click directly on the email text to make changes.
                 </p>
               </div>
             </div>
@@ -247,7 +279,7 @@ function EmailTemplatesSection() {
   );
 }
 
-// ── Template detail with inline editing ──────────────────────────────────────
+// ── Template detail ───────────────────────────────────────────────────────────
 
 interface DetailProps {
   template: DbEmailTemplate;
@@ -260,60 +292,59 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
   const { user, activeOrg } = useAuth();
 
-  const [draft,    setDraft]    = useState<DbEmailTemplate>(template);
-  const [status,   setStatus]   = useState<SaveStatus>('idle');
-  const [varInput, setVarInput] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track if the current template is still a global default (first-save will create org copy)
+  const [draft,      setDraft]      = useState<DbEmailTemplate>(template);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [varInput,   setVarInput]   = useState('');
+  const [tagInput,   setTagInput]   = useState('');
   const isDefaultRef = useRef(template.is_default && template.organization_id === null);
 
   useEffect(() => {
     setDraft(template);
-    setStatus('idle');
+    setHasChanges(false);
+    setSaveStatus('idle');
     isDefaultRef.current = template.is_default && template.organization_id === null;
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [template.id]);
 
-  const scheduleSave = (next: DbEmailTemplate) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setStatus('saving');
-
-    timerRef.current = setTimeout(async () => {
-      try {
-        if (isDefaultRef.current && activeOrg && user) {
-          // First edit of a global default → create an org-scoped copy transparently
-          const saved = await createEmailTemplate(activeOrg.id, user.id, {
-            name: next.name, category: next.category, subject: next.subject,
-            description: next.description, html_body: next.html_body,
-            variables: next.variables, tags: next.tags,
-          });
-          isDefaultRef.current = false;
-          onUpdate(saved, template.id); // replace old default in list
-        } else {
-          const saved = await updateEmailTemplate(next.id, {
-            name: next.name, category: next.category, subject: next.subject,
-            description: next.description, html_body: next.html_body,
-            variables: next.variables, tags: next.tags,
-          });
-          onUpdate(saved);
-        }
-        setStatus('saved');
-        setTimeout(() => setStatus('idle'), 2000);
-      } catch {
-        setStatus('error');
-      }
-    }, 1200);
+  const patch = (changes: Partial<DbEmailTemplate>) => {
+    setDraft((prev) => ({ ...prev, ...changes }));
+    setHasChanges(true);
   };
 
-  const patch = (changes: Partial<DbEmailTemplate>) => {
-    const next = { ...draft, ...changes };
-    setDraft(next);
-    scheduleSave(next);
+  const handleSave = async () => {
+    setSaveStatus('saving');
+    try {
+      if (isDefaultRef.current && activeOrg && user) {
+        // First edit of a global default → create an org-scoped copy transparently
+        const saved = await createEmailTemplate(activeOrg.id, user.id, {
+          name: draft.name, category: draft.category, subject: draft.subject,
+          description: draft.description, html_body: draft.html_body,
+          variables: draft.variables, tags: draft.tags,
+        });
+        isDefaultRef.current = false;
+        onUpdate(saved, template.id);
+      } else {
+        const saved = await updateEmailTemplate(draft.id, {
+          name: draft.name, category: draft.category, subject: draft.subject,
+          description: draft.description, html_body: draft.html_body,
+          variables: draft.variables, tags: draft.tags,
+        });
+        onUpdate(saved);
+      }
+      setSaveStatus('saved');
+      setHasChanges(false);
+      setTimeout(() => setSaveStatus('idle'), 2500);
+    } catch {
+      setSaveStatus('error');
+    }
+  };
+
+  const handleTestEmail = () => {
+    // TODO: send test email to logged-in user
   };
 
   const addVar = () => {
-    const v = varInput.trim();
+    const v = varInput.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     if (!v || draft.variables.includes(v)) return;
     patch({ variables: [...draft.variables, v] });
     setVarInput('');
@@ -326,130 +357,196 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
     setTagInput('');
   };
 
+  const subjectLen  = draft.subject.length;
+  const subjectOver = subjectLen > 60;
+
   return (
     <div className="card overflow-hidden">
 
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center gap-3">
+      {/* Card header */}
+      <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center gap-3 flex-wrap">
         <input
           value={draft.name}
           onChange={(e) => patch({ name: e.target.value })}
-          className="input text-sm font-semibold flex-1"
+          className="input text-sm font-semibold flex-1 min-w-0"
           placeholder="Template name"
         />
 
-        {/* Save status */}
-        <span className={`text-xs shrink-0 transition-opacity duration-200 ${status === 'idle' ? 'opacity-0' : 'opacity-100'} ${
-          status === 'saved' ? 'text-emerald-400' :
-          status === 'error' ? 'text-red-400' : 'text-ds-muted'
-        }`}>
-          {status === 'saving' && <><Loader2 size={11} className="inline animate-spin mr-1" />Saving…</>}
-          {status === 'saved'  && '✓ Saved'}
-          {status === 'error'  && '⚠ Error saving'}
-        </span>
+        {/* Unsaved indicator */}
+        {hasChanges && saveStatus === 'idle' && (
+          <span className="text-xs text-amber-400 shrink-0">Unsaved changes</span>
+        )}
+        {saveStatus === 'saved' && (
+          <span className="text-xs text-emerald-400 shrink-0">✓ Saved</span>
+        )}
+        {saveStatus === 'error' && (
+          <span className="text-xs text-red-400 shrink-0">⚠ Save failed — try again</span>
+        )}
 
-        {/* Delete (only for org-owned templates, not untouched globals) */}
+        {/* Test email */}
+        <button
+          onClick={handleTestEmail}
+          className="btn-secondary flex items-center gap-2 text-sm shrink-0"
+          title="Send a test email to yourself"
+        >
+          <Send size={14} />
+          Test Email
+        </button>
+
+        {/* Save */}
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges || saveStatus === 'saving'}
+          className={`flex items-center gap-2 text-sm shrink-0 transition-all ${
+            hasChanges
+              ? 'btn-primary'
+              : 'btn-primary opacity-40 cursor-not-allowed'
+          }`}
+        >
+          {saveStatus === 'saving'
+            ? <Loader2 size={14} className="animate-spin" />
+            : <Save size={14} />}
+          {saveStatus === 'saving' ? 'Saving…' : 'Save Changes'}
+        </button>
+
+        {/* Delete (org-owned only) */}
         {!template.is_default && (
           <button
             onClick={() => onDelete(template.id)}
             className="p-2 rounded-lg hover:bg-red-500/10 text-ds-muted hover:text-red-400 transition-colors shrink-0"
-            title="Delete template"
+            title="Delete this template"
           >
-            <Trash2 size={16} />
+            <Trash2 size={15} />
           </button>
         )}
       </div>
 
-      <div className="p-6 space-y-5">
+      <div className="p-6 space-y-6">
 
-        {/* Category + status badge */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={draft.category}
-            onChange={(e) => patch({ category: e.target.value })}
-            className="input w-auto bg-ds-surface2 text-xs"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          {template.is_default ? (
-            <span className="text-xs text-ds-muted">Default — edit to customize for your org</span>
-          ) : (
-            <span className="text-xs text-ds-accent inline-flex items-center gap-1">
-              <Sparkles size={11} /> Customized
-            </span>
-          )}
+        {/* Category + customization badge */}
+        <div className="flex items-end gap-3 flex-wrap">
+          <div>
+            <label className="label">Category</label>
+            <select
+              value={draft.category}
+              onChange={(e) => patch({ category: e.target.value })}
+              className="input w-auto bg-ds-surface2 text-sm"
+            >
+              {CATEGORY_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.items.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div className="pb-0.5">
+            {template.is_default ? (
+              <span className="badge bg-ds-surface2 text-ds-muted">Default — save to customize for your org</span>
+            ) : (
+              <span className="badge bg-ds-accent/10 text-ds-accent inline-flex items-center gap-1">
+                <Sparkles size={11} /> Customized for your org
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Description */}
         <div>
           <label className="label">Description</label>
+          <p className="text-xs text-ds-muted mb-1.5">
+            A short note shown in the template list to help you find it quickly.
+          </p>
           <input
             value={draft.description}
             onChange={(e) => patch({ description: e.target.value })}
             className="input text-sm"
-            placeholder="Short summary shown in the library…"
+            placeholder="e.g. Sent when a customer reports a damaged item"
           />
         </div>
 
         {/* Subject */}
         <div>
-          <label className="label">Subject</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="label !mb-0">Email Subject Line</label>
+            <span className={`text-xs ${subjectOver ? 'text-amber-400' : 'text-ds-muted'}`}>
+              {subjectLen}/60{subjectOver && ' — consider shortening'}
+            </span>
+          </div>
           <input
             value={draft.subject}
             onChange={(e) => patch({ subject: e.target.value })}
-            className="input font-mono text-xs"
-            placeholder="Email subject…"
+            className="input text-sm"
+            placeholder="e.g. We're sorry about your order — here's what we'll do"
           />
         </div>
 
-        {/* Visual body editor */}
+        {/* Email body */}
         <div>
           <label className="label">Email Body</label>
           <VisualEditor
             html={draft.html_body}
+            variables={draft.variables}
             onChange={(html) => patch({ html_body: html })}
           />
         </div>
 
-        {/* Variables */}
-        <div>
-          <label className="label">Variables</label>
+        {/* Personalization fields */}
+        <div className="rounded-xl border border-ds-borderSoft bg-ds-surface2/40 p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-ds-text">Personalization Fields</p>
+            <p className="text-xs text-ds-muted mt-0.5">
+              Smart placeholders replaced with real customer data when the email is sent.
+              Use <span className="text-ds-accent font-medium">Insert Field</span> in the toolbar above to place them in your email.
+            </p>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {draft.variables.map((v) => (
-              <button
+              <div
                 key={v}
-                onClick={() => patch({ variables: draft.variables.filter((x) => x !== v) })}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-ds-accent/10 text-ds-accent rounded-full text-xs font-medium font-mono hover:bg-ds-accent/20 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-ds-surface border border-ds-border rounded-lg text-xs"
               >
-                {`{{${v}}}`} <X size={10} />
-              </button>
+                <span className="font-medium text-ds-text">{varLabel(v)}</span>
+                <span className="font-mono text-[10px] text-ds-muted">{`{{${v}}}`}</span>
+                <button
+                  onClick={() => patch({ variables: draft.variables.filter((x) => x !== v) })}
+                  className="text-ds-muted hover:text-red-400 transition-colors"
+                  title={`Remove ${varLabel(v)}`}
+                >
+                  <X size={10} />
+                </button>
+              </div>
             ))}
+
             <div className="flex gap-1.5 items-center">
               <input
                 value={varInput}
                 onChange={(e) => setVarInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addVar())}
-                placeholder="new_var"
-                className="input h-7 text-xs font-mono px-2 w-28"
+                placeholder="new_field"
+                className="input h-8 text-xs font-mono px-2.5 w-28"
               />
-              <button onClick={addVar} className="btn-ghost h-7 px-2 text-xs">
-                <Plus size={12} />
+              <button onClick={addVar} className="btn-ghost h-8 px-2.5 text-xs flex items-center gap-1">
+                <Plus size={12} /> Add
               </button>
             </div>
           </div>
         </div>
 
-        {/* Tags */}
+        {/* Labels */}
         <div>
-          <label className="label">Tags</label>
+          <label className="label">Labels</label>
+          <p className="text-xs text-ds-muted mb-2">
+            Used for search and filtering only — not included in the email.
+          </p>
           <div className="flex flex-wrap gap-2">
             {draft.tags.map((tag) => (
               <button
                 key={tag}
                 onClick={() => patch({ tags: draft.tags.filter((x) => x !== tag) })}
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-ds-hover text-ds-text2 rounded-full text-xs hover:bg-ds-border transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-ds-hover text-ds-text2 rounded-full text-xs hover:bg-ds-border transition-colors"
               >
                 #{tag} <X size={10} />
               </button>
@@ -459,11 +556,11 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                placeholder="tag"
-                className="input h-7 text-xs px-2 w-20"
+                placeholder="label"
+                className="input h-7 text-xs px-2 w-24"
               />
-              <button onClick={addTag} className="btn-ghost h-7 px-2 text-xs">
-                <Tag size={12} />
+              <button onClick={addTag} className="btn-ghost h-7 px-2 text-xs flex items-center gap-1">
+                <Tag size={11} /> Add
               </button>
             </div>
           </div>
@@ -473,16 +570,57 @@ function TemplateDetail({ template, onDelete, onUpdate }: DetailProps) {
   );
 }
 
-// ── Visual (contenteditable) email editor ─────────────────────────────────────
+// ── Visual email editor with formatting toolbar ───────────────────────────────
 
-function VisualEditor({ html, onChange }: { html: string; onChange: (html: string) => void }) {
+function VisualEditor({
+  html,
+  onChange,
+  variables,
+}: {
+  html: string;
+  onChange: (html: string) => void;
+  variables: string[];
+}) {
   const iframeRef   = useRef<HTMLIFrameElement>(null);
   const onChangeRef = useRef(onChange);
+  const dropRef     = useRef<HTMLDivElement>(null);
+  const [varDropOpen, setVarDropOpen] = useState(false);
 
-  // Keep callback ref fresh on every render so stale closures never fire
   useEffect(() => { onChangeRef.current = onChange; });
 
-  // Write HTML once on mount and wire up contenteditable
+  // Close the Insert Field dropdown when clicking elsewhere
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setVarDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const cleanHtml = (raw: string) =>
+    raw
+      .replace(/<style id="__editor">[\s\S]*?<\/style>/g, '')
+      .replace(/ contenteditable="true"/g, '')
+      .replace(/ style="outline: none; cursor: text;"/g, '');
+
+  // Execute a rich-text command inside the iframe (Bold, Italic, etc.)
+  // onMouseDown + preventDefault on the toolbar buttons keeps the iframe's
+  // selection alive so execCommand applies to the right text.
+  const execCmd = (cmd: string, val?: string) => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    doc.execCommand(cmd, false, val ?? '');
+    onChangeRef.current(cleanHtml(doc.documentElement.outerHTML));
+  };
+
+  const insertVar = (varName: string) => {
+    execCmd('insertText', `{{${varName}}}`);
+    setVarDropOpen(false);
+  };
+
+  // Write HTML into the iframe once on mount and wire up contenteditable
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -495,64 +633,124 @@ function VisualEditor({ html, onChange }: { html: string; onChange: (html: strin
       doc.write(html || '<p style="color:#6b7280;font-family:sans-serif;padding:24px 32px;">No content yet.</p>');
       doc.close();
 
-      // Make text-bearing elements editable
       doc.querySelectorAll<HTMLElement>('p, li, h1, h2, h3, td').forEach((el) => {
         el.contentEditable = 'true';
         el.style.outline = 'none';
         el.style.cursor = 'text';
       });
 
-      // Inject hover/focus styles
       const style = doc.createElement('style');
       style.id = '__editor';
       style.textContent = `
         [contenteditable]:hover { outline: 1px dashed #4DA3FF !important; border-radius: 3px; }
-        [contenteditable]:focus { outline: 2px solid #4DA3FF !important; border-radius: 3px; }
+        [contenteditable]:focus { outline: 2px solid  #4DA3FF !important; border-radius: 3px; }
+        ::selection { background: rgba(77,163,255,0.2); }
       `;
       doc.head.appendChild(style);
 
-      // Prevent Enter from splitting <td> rows
       doc.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.target as HTMLElement)?.tagName === 'TD') {
           e.preventDefault();
         }
       });
 
-      // Fire onChange with clean HTML (strip editing artifacts before saving)
       doc.addEventListener('input', () => {
-        let raw = doc.documentElement.outerHTML;
-        // Strip injected style and contenteditable attributes before saving
-        raw = raw.replace(/<style id="__editor">[\s\S]*?<\/style>/g, '');
-        raw = raw.replace(/ contenteditable="true"/g, '');
-        raw = raw.replace(/ style="outline: none; cursor: text;"/g, '');
-        onChangeRef.current(raw);
+        onChangeRef.current(cleanHtml(doc.documentElement.outerHTML));
       });
     };
 
-    // iframe may already be ready or not yet loaded
     if (iframe.contentDocument?.readyState === 'complete' || !iframe.src) {
       init();
     } else {
       iframe.addEventListener('load', init, { once: true });
     }
-  }, []); // run once on mount — key prop on parent handles template switching
+  }, []); // run once on mount — key prop on TemplateDetail handles template switching
 
   return (
-    <div className="rounded-xl border border-ds-borderSoft overflow-hidden bg-white">
-      <div className="px-3 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 flex items-center gap-1.5 select-none">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-        Click on any text in the email below to edit it
+    <div className="rounded-xl border border-ds-borderSoft overflow-hidden">
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 px-3 py-2 bg-ds-surface2 border-b border-ds-borderSoft">
+
+        {/* Bold / Italic / Underline */}
+        {([
+          { label: 'B', title: 'Bold (Ctrl+B)',      cmd: 'bold',      cls: 'font-bold' },
+          { label: 'I', title: 'Italic (Ctrl+I)',    cmd: 'italic',    cls: 'italic' },
+          { label: 'U', title: 'Underline (Ctrl+U)', cmd: 'underline', cls: 'underline decoration-current' },
+        ] as const).map(({ label, title, cmd, cls }) => (
+          <button
+            key={cmd}
+            type="button"
+            title={title}
+            onMouseDown={(e) => { e.preventDefault(); execCmd(cmd); }}
+            className={`w-7 h-7 rounded text-ds-text2 hover:bg-ds-hover hover:text-ds-text transition-colors text-xs flex items-center justify-center ${cls}`}
+          >
+            {label}
+          </button>
+        ))}
+
+        <div className="w-px h-4 bg-ds-borderSoft mx-1.5 shrink-0" />
+
+        {/* Insert Field dropdown */}
+        {variables.length > 0 && (
+          <div className="relative" ref={dropRef}>
+            <button
+              type="button"
+              title="Insert a personalization field at the cursor position"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setVarDropOpen((o) => !o)}
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded text-xs text-ds-accent hover:bg-ds-accent/10 transition-colors font-medium"
+            >
+              <span className="font-mono leading-none">{'{}'}</span>
+              Insert Field
+              <ChevronDown
+                size={11}
+                className={`transition-transform duration-150 ${varDropOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {varDropOpen && (
+              <div className="absolute left-0 top-full mt-1 z-50 bg-ds-surface border border-ds-border rounded-xl shadow-card overflow-hidden min-w-[210px]">
+                <p className="px-3 py-2 text-xs text-ds-muted border-b border-ds-borderSoft">
+                  Click to insert at cursor
+                </p>
+                {variables.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => insertVar(v)}
+                    className="w-full text-left px-3 py-2 hover:bg-ds-hover transition-colors flex items-center justify-between gap-4"
+                  >
+                    <span className="text-sm text-ds-text">{varLabel(v)}</span>
+                    <span className="text-xs font-mono text-ds-muted shrink-0">{`{{${v}}}`}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hint */}
+        <div className="ml-auto flex items-center gap-1.5 text-xs text-ds-muted select-none">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Click text in the email to edit
+        </div>
       </div>
-      <iframe
-        ref={iframeRef}
-        sandbox="allow-same-origin"
-        title="Email visual editor"
-        className="w-full"
-        style={{ height: 400, border: 'none', display: 'block' }}
-      />
+
+      {/* Email preview / edit area */}
+      <div className="bg-white">
+        <iframe
+          ref={iframeRef}
+          sandbox="allow-same-origin"
+          title="Email visual editor"
+          className="w-full"
+          style={{ height: 460, border: 'none', display: 'block' }}
+        />
+      </div>
     </div>
   );
 }
