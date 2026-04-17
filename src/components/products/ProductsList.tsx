@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Package, PackagePlus, Tag, Ruler, Layers, DollarSign, ExternalLink, Trash2, Loader2 } from 'lucide-react';
+import { Package, PackagePlus, Tag, Ruler, Layers, DollarSign, ExternalLink, Trash2, Loader2, Pencil } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProducts, deleteProduct } from '../../lib/supabase/products';
 import type { Product } from '../../lib/supabase/types';
@@ -35,7 +35,7 @@ function ProductPhoto({ url }: { url: string | null }) {
   );
 }
 
-function ProductCard({ product, onDelete }: { product: Product; onDelete: (id: string) => void }) {
+function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -140,6 +140,13 @@ function ProductCard({ product, onDelete }: { product: Product; onDelete: (id: s
               </a>
             )}
             <button
+              onClick={() => onEdit(product.id)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent transition-all"
+            >
+              <Pencil size={11} />
+              Edit
+            </button>
+            <button
               onClick={handleDelete}
               onBlur={() => setConfirmDelete(false)}
               disabled={deleting}
@@ -160,7 +167,7 @@ function ProductCard({ product, onDelete }: { product: Product; onDelete: (id: s
 }
 
 interface ProductsListProps {
-  onNavigate: (section: ActiveSection) => void;
+  onNavigate: (section: ActiveSection, productId?: string) => void;
 }
 
 export default function ProductsList({ onNavigate }: ProductsListProps) {
@@ -234,6 +241,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
               key={p.id}
               product={p}
               onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
+              onEdit={(id) => onNavigate('products-edit-item', id)}
             />
           ))}
         </div>

@@ -13,6 +13,7 @@ const VALID_SECTIONS: ActiveSection[] = [
   "integrations",
   "products-list",
   "products-add-item",
+  "products-edit-item",
 ];
 
 function readSectionFromUrl(): ActiveSection {
@@ -36,11 +37,13 @@ function App() {
   } = useAuth();
   const [activeSection, setActiveSection] =
     useState<ActiveSection>(readSectionFromUrl);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
 
   // Write ?tab= into the URL whenever the active section changes
-  const navigate = (section: ActiveSection) => {
+  const navigate = (section: ActiveSection, productId?: string) => {
     setActiveSection(section);
+    if (productId !== undefined) setEditingProductId(productId);
     const url = new URL(window.location.href);
     url.searchParams.set("tab", section);
     window.history.pushState({}, "", url.toString());
@@ -167,7 +170,7 @@ function App() {
         {/* Main */}
         <main className="px-6 py-7 min-h-[calc(100vh-57px)]">
           <div className="max-w-7xl mx-auto">
-            <Dashboard activeSection={activeSection} onNavigate={navigate} />
+            <Dashboard activeSection={activeSection} editingProductId={editingProductId} onNavigate={navigate} />
           </div>
         </main>
       </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config' | 'products-list' | 'products-add-item';
+export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config' | 'products-list' | 'products-add-item' | 'products-edit-item';
 
 interface SidebarProps {
   activeSection: ActiveSection;

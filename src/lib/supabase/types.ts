@@ -100,6 +100,7 @@ export interface Product {
   sizes: string[];
   material: string | null;
   purchase_price: number | null;
+  currency: string | null;
   discount: number | null;
   competitor_link: string | null;
   supplier_link: string | null;

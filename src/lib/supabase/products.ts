@@ -12,6 +12,17 @@ export async function getProducts(organizationId: string): Promise<Product[]> {
   return data ?? [];
 }
 
+export async function getProductById(id: string): Promise<Product> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function createProduct(
   product: Omit<Product, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Product> {

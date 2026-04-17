@@ -7,10 +7,11 @@ import type { ActiveSection } from './Sidebar';
 
 interface DashboardProps {
   activeSection: ActiveSection;
-  onNavigate: (section: ActiveSection) => void;
+  editingProductId: string | null;
+  onNavigate: (section: ActiveSection, productId?: string) => void;
 }
 
-function Dashboard({ activeSection, onNavigate }: DashboardProps) {
+function Dashboard({ activeSection, editingProductId, onNavigate }: DashboardProps) {
   return (
     <div>
       {activeSection === 'email'              && <EmailTemplatesSection />}
@@ -19,6 +20,9 @@ function Dashboard({ activeSection, onNavigate }: DashboardProps) {
       {activeSection === 'integrations'       && <IntegrationsSection />}
       {activeSection === 'products-list'      && <ProductsSection subSection="list" onNavigate={onNavigate} />}
       {activeSection === 'products-add-item'  && <ProductsSection subSection="add-item" onNavigate={onNavigate} />}
+      {activeSection === 'products-edit-item' && (
+        <ProductsSection subSection="edit-item" editingProductId={editingProductId ?? undefined} onNavigate={onNavigate} />
+      )}
     </div>
   );
 }
