@@ -14,6 +14,7 @@ const VALID_SECTIONS: ActiveSection[] = [
   "products-list",
   "products-add-item",
   "products-edit-item",
+  "members-add",
 ];
 
 function readSectionFromUrl(): ActiveSection {

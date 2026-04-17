@@ -1,6 +1,25 @@
 import { supabase } from './client';
 import type { MemberRole, MemberStatus, OrganizationMember, OrganizationMemberWithUser } from './types';
 
+export async function createMemberAccount(
+  orgId: string,
+  fullName: string,
+  email: string,
+  password: string,
+): Promise<{ user_id: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const res = await supabase.functions.invoke('create-member', {
+    body: { org_id: orgId, full_name: fullName, email, password },
+  });
+
+  if (res.error) throw new Error(res.error.message);
+  const payload = res.data as { ok: boolean; message: string; user_id?: string };
+  if (!payload.ok) throw new Error(payload.message);
+  return { user_id: payload.user_id! };
+}
+
 export async function getOrganizationMembers(orgId: string): Promise<OrganizationMemberWithUser[]> {
   const { data, error } = await supabase
     .from('organization_members')

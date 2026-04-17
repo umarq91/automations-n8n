@@ -19,7 +19,7 @@ export interface Organization {
   updated_at: string;
 }
 
-export type MemberRole = 'owner' | 'admin' | 'member';
+export type MemberRole = 'owner' | 'admin' | 'member' | 'supplier';
 export type MemberStatus = 'active' | 'invited' | 'disabled';
 
 export interface OrganizationMember {

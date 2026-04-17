@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Building2, Crown, Users, Calendar, Hash, Sparkles,
   Shield, UserCheck, Clock, Mail, AlertCircle, Loader2,
-  Pencil, Check, X,
+  Pencil, Check, X, UserPlus, Truck,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getOrganizationMembers } from '../lib/supabase/members';
 import { updateUserProfile } from '../lib/supabase/users';
 import type { OrganizationMemberWithUser, MemberRole } from '../lib/supabase/types';
+import type { ActiveSection } from './Sidebar';
+import { Button } from './ui/button';
 
 const PLAN_STYLES: Record<string, { label: string; className: string }> = {
   free:       { label: 'Free',       className: 'bg-ds-hover text-ds-text2' },
@@ -16,9 +18,10 @@ const PLAN_STYLES: Record<string, { label: string; className: string }> = {
 };
 
 const ROLE_STYLES: Record<MemberRole, { label: string; icon: typeof Crown; className: string }> = {
-  owner:  { label: 'Owner',  icon: Crown,     className: 'bg-amber-500/10 text-amber-400' },
-  admin:  { label: 'Admin',  icon: Shield,    className: 'bg-ds-accent/10 text-ds-accent' },
-  member: { label: 'Member', icon: UserCheck, className: 'bg-ds-hover text-ds-text2' },
+  owner:    { label: 'Owner',    icon: Crown,     className: 'bg-amber-500/10 text-amber-400' },
+  admin:    { label: 'Admin',    icon: Shield,    className: 'bg-ds-accent/10 text-ds-accent' },
+  member:   { label: 'Member',   icon: UserCheck, className: 'bg-ds-hover text-ds-text2' },
+  supplier: { label: 'Supplier', icon: Truck,     className: 'bg-emerald-500/10 text-emerald-400' },
 };
 
 const STATUS_STYLES: Record<string, { dot: string; label: string; text: string }> = {
@@ -44,7 +47,11 @@ function Avatar({ name, email, size = 'md' }: { name?: string | null; email?: st
   );
 }
 
-export default function OrganizationSection() {
+interface OrganizationSectionProps {
+  onNavigate: (section: ActiveSection) => void;
+}
+
+export default function OrganizationSection({ onNavigate }: OrganizationSectionProps) {
   const { user, activeOrg, refreshUser } = useAuth();
   const [members, setMembers] = useState<OrganizationMemberWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -269,7 +276,7 @@ export default function OrganizationSection() {
 
       {/* Members table */}
       <div className="card overflow-hidden">
-        <div className="px-6 py-4 border-b border-ds-borderSoft flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-ds-borderSoft flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <Users size={15} className="text-ds-muted" />
             <h2 className="font-semibold text-ds-text text-sm">Members</h2>
@@ -277,14 +284,22 @@ export default function OrganizationSection() {
               {members.length}
             </span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-ds-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" /> {activeCount} active
-            </span>
-            {invitedCount > 0 && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 text-xs text-ds-muted">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" /> {invitedCount} invited
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" /> {activeCount} active
               </span>
+              {invitedCount > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" /> {invitedCount} invited
+                </span>
+              )}
+            </div>
+            {canEdit && (
+              <Button variant="primary" size="sm" onClick={() => onNavigate('members-add')}>
+                <UserPlus size={13} />
+                Add Member
+              </Button>
             )}
           </div>
         </div>
