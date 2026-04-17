@@ -89,6 +89,11 @@ export interface Integration {
 
 export type ProductStatus = 'NOT_IMPORTED' | 'READY_TO_IMPORT' | 'ALREADY_IMPORTED' | 'IMPORTING';
 
+export interface ProductCurrency {
+  base_currency: string;
+  converted_currency: string;
+}
+
 export interface Product {
   id: string;
   organization_id: string;
@@ -100,7 +105,7 @@ export interface Product {
   sizes: string[];
   material: string | null;
   purchase_price: number | null;
-  currency: string | null;
+  currency: ProductCurrency | string | null;
   discount: number | null;
   competitor_link: string | null;
   supplier_link: string | null;

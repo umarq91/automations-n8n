@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, LogOut, ChevronDown, Building2 } from "lucide-react";
+import { LogOut, ChevronDown, Building2 } from "lucide-react";
 import Dashboard from "./components/Dashboard";
 import Sidebar, { type ActiveSection } from "./components/Sidebar";
 import LoginPage from "./components/auth/LoginPage";

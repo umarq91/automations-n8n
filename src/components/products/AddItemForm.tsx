@@ -6,8 +6,9 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useAuth } from '../../contexts/AuthContext';
 import { createProduct, uploadProductPhoto } from '../../lib/supabase/products';
-import type { ProductStatus } from '../../lib/supabase/types';
+import type { ProductCurrency, ProductStatus } from '../../lib/supabase/types';
 import type { ActiveSection } from '../Sidebar';
+import { currencyOptions } from '../../lib/constants';
 
 interface AddItemFormData {
   title: string;
@@ -19,7 +20,8 @@ interface AddItemFormData {
   sizes: string[];
   material: string;
   purchase_price: string;
-  currency: string;
+  base_currency: string;
+  converted_currency: string;
   supplier_link: string;
   note: string;
   season: string;
@@ -38,7 +40,8 @@ const emptyForm: AddItemFormData = {
   sizes: [],
   material: '',
   purchase_price: '',
-  currency: 'USD',
+  base_currency: 'USD',
+  converted_currency: '',
   supplier_link: '',
   note: '',
   season: '',
@@ -46,6 +49,8 @@ const emptyForm: AddItemFormData = {
   status: 'NOT_IMPORTED',
   discount: '',
 };
+
+
 
 const selectClass =
   'flex w-full px-3.5 py-2.5 bg-ds-surface2 border border-ds-border rounded-xl ' +
@@ -165,6 +170,11 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
     setErrorMsg('');
 
     try {
+      const currency: ProductCurrency = {
+        base_currency: form.base_currency,
+        converted_currency: (form.converted_currency || form.base_currency).trim(),
+      };
+
       // 1. Create product record first to get the ID
       const product = await createProduct({
         organization_id: activeOrg.id,
@@ -177,7 +187,7 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         sizes: form.sizes,
         material: form.material.trim() || null,
         purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
-        currency: form.currency || null,
+        currency,
         discount: form.discount ? parseFloat(form.discount) : null,
         competitor_link: form.competitor_link.trim() || null,
         supplier_link: form.supplier_link.trim() || null,
@@ -386,31 +396,48 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
               </div>
             </div>
             <div>
-              <Label htmlFor="item-currency">Currency</Label>
+              <Label htmlFor="item-base-currency">Base Currency</Label>
               <select
-                id="item-currency"
+                id="item-base-currency"
                 className={selectClass}
-                value={form.currency}
-                onChange={(e) => set('currency', e.target.value)}
+                value={form.base_currency}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    base_currency: next,
+                    converted_currency: prev.converted_currency ? prev.converted_currency : '',
+                  }));
+                }}
               >
-                <option value="USD">USD — US Dollar</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="GBP">GBP — British Pound</option>
-                <option value="CAD">CAD — Canadian Dollar</option>
-                <option value="AUD">AUD — Australian Dollar</option>
-                <option value="JPY">JPY — Japanese Yen</option>
-                <option value="CNY">CNY — Chinese Yuan</option>
-                <option value="INR">INR — Indian Rupee</option>
-                <option value="BRL">BRL — Brazilian Real</option>
-                <option value="MXN">MXN — Mexican Peso</option>
-                <option value="AED">AED — UAE Dirham</option>
-                <option value="SAR">SAR — Saudi Riyal</option>
-                <option value="CHF">CHF — Swiss Franc</option>
-                <option value="SEK">SEK — Swedish Krona</option>
-                <option value="NOK">NOK — Norwegian Krone</option>
-                <option value="TRY">TRY — Turkish Lira</option>
-                <option value="PKR">PKR — Pakistani Rupee</option>
+                {currencyOptions.map((c) => (
+                  <option key={c.code} value={c.code}>{c.label}</option>
+                ))}
               </select>
+              <div className="mt-3 flex items-end gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="item-converted-currency">Converted Currency (optional)</Label>
+                  <select
+                    id="item-converted-currency"
+                    className={selectClass}
+                    value={form.converted_currency}
+                    onChange={(e) => set('converted_currency', e.target.value)}
+                  >
+                    <option value="">Same as base</option>
+                    {currencyOptions.map((c) => (
+                      <option key={c.code} value={c.code}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => set('converted_currency', form.base_currency)}
+                  className="h-10"
+                >
+                  Keep same
+                </Button>
+              </div>
             </div>
             <div>
               <Label htmlFor="item-discount">Discount (%)</Label>
