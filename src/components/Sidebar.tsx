@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { canAccess } from '../lib/rbac';
 
 export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config' | 'products-list' | 'products-add-item' | 'products-edit-item' | 'members-add';
 
@@ -25,6 +26,7 @@ const productSubItems: { id: ActiveSection; label: string; icon: LucideIcon }[] 
 
 export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
   const { user, activeOrg } = useAuth();
+  const role = activeOrg?.role;
   const isProductsActive = activeSection.startsWith('products-');
   const [productsOpen, setProductsOpen] = useState(isProductsActive);
 
@@ -35,6 +37,10 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
   const initials = user?.full_name
     ? user.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
     : user?.email?.slice(0, 2).toUpperCase() ?? '??';
+
+  const visibleNavItems = navItems.filter((item) => canAccess(role, item.id));
+  const visibleProductSubItems = productSubItems.filter((item) => canAccess(role, item.id));
+  const showProductsGroup = visibleProductSubItems.length > 0;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0D1117] border-r border-ds-borderSoft flex flex-col z-50">
@@ -54,7 +60,7 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
         <p className="text-ds-muted text-[10px] font-semibold uppercase tracking-widest px-2 mb-3">Menu</p>
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeSection === item.id;
           return (
@@ -71,35 +77,39 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
         })}
 
         {/* Products expandable group */}
-        <button
-          onClick={() => setProductsOpen((o) => !o)}
-          className={`sidebar-nav-item w-full ${isProductsActive ? 'active' : 'inactive'}`}
-        >
-          <Package size={16} />
-          <span className="flex-1 text-left">Products</span>
-          <ChevronRight
-            size={13}
-            className={`text-ds-muted transition-transform duration-200 ${productsOpen ? 'rotate-90' : ''}`}
-          />
-        </button>
-        {productsOpen && (
-          <div className="ml-3 pl-3 border-l border-ds-borderSoft space-y-0.5 mt-0.5">
-            {productSubItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeSection === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  className={`sidebar-nav-item w-full text-[13px] ${isActive ? 'active' : 'inactive'}`}
-                >
-                  <Icon size={14} />
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {isActive && <ChevronRight size={12} className="text-ds-accent opacity-70" />}
-                </button>
-              );
-            })}
-          </div>
+        {showProductsGroup && (
+          <>
+            <button
+              onClick={() => setProductsOpen((o) => !o)}
+              className={`sidebar-nav-item w-full ${isProductsActive ? 'active' : 'inactive'}`}
+            >
+              <Package size={16} />
+              <span className="flex-1 text-left">Products</span>
+              <ChevronRight
+                size={13}
+                className={`text-ds-muted transition-transform duration-200 ${productsOpen ? 'rotate-90' : ''}`}
+              />
+            </button>
+            {productsOpen && (
+              <div className="ml-3 pl-3 border-l border-ds-borderSoft space-y-0.5 mt-0.5">
+                {visibleProductSubItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onNavigate(item.id)}
+                      className={`sidebar-nav-item w-full text-[13px] ${isActive ? 'active' : 'inactive'}`}
+                    >
+                      <Icon size={14} />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {isActive && <ChevronRight size={12} className="text-ds-accent opacity-70" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </nav>
 
@@ -142,8 +152,8 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
 
         {/* User */}
         <button
-          onClick={() => onNavigate('organization')}
-          className="flex items-center gap-3 w-full px-1 hover:opacity-80 transition-opacity text-left"
+          onClick={() => canAccess(role, 'organization') && onNavigate('organization')}
+          className={`flex items-center gap-3 w-full px-1 transition-opacity text-left ${canAccess(role, 'organization') ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
         >
           <div className="w-8 h-8 gradient-indigo rounded-full flex items-center justify-center flex-shrink-0 shadow-accent-glow">
             <span className="text-white text-xs font-bold">{initials}</span>

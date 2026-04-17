@@ -4,6 +4,7 @@ import Dashboard from "./components/Dashboard";
 import Sidebar, { type ActiveSection } from "./components/Sidebar";
 import LoginPage from "./components/auth/LoginPage";
 import { useAuth } from "./contexts/AuthContext";
+import { canAccess, getDefaultSection } from "./lib/rbac";
 
 const VALID_SECTIONS: ActiveSection[] = [
   "overview",
@@ -41,14 +42,29 @@ function App() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
 
-  // Write ?tab= into the URL whenever the active section changes
+  const role = activeOrg?.role;
+
+  // Write ?tab= into the URL and enforce RBAC
   const navigate = (section: ActiveSection, productId?: string) => {
-    setActiveSection(section);
+    const target = canAccess(role, section) ? section : getDefaultSection(role);
+    setActiveSection(target);
     if (productId !== undefined) setEditingProductId(productId);
     const url = new URL(window.location.href);
-    url.searchParams.set("tab", section);
+    url.searchParams.set("tab", target);
     window.history.pushState({}, "", url.toString());
   };
+
+  // After auth resolves, redirect to default if current section is blocked
+  useEffect(() => {
+    if (!role) return;
+    if (!canAccess(role, activeSection)) {
+      const fallback = getDefaultSection(role);
+      setActiveSection(fallback);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", fallback);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed the URL on first load if there's no ?tab= yet
   useEffect(() => {
@@ -62,10 +78,14 @@ function App() {
 
   // Keep activeSection in sync with browser back / forward
   useEffect(() => {
-    const onPop = () => setActiveSection(readSectionFromUrl());
+    const onPop = () => {
+      const section = readSectionFromUrl();
+      const target = canAccess(role, section) ? section : getDefaultSection(role);
+      setActiveSection(target);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [role]);
 
   if (loading) {
     return (
