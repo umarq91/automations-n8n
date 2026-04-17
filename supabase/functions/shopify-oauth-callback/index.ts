@@ -64,12 +64,16 @@ serve(async (req) => {
 
   const { access_token, scope } = await tokenRes.json();
 
+  // Derive store URLs from shop_domain
+  const store_url = shop_domain;
+  const admin_url = `admin.${shop_domain}`;
+
   // Update integration: activate it, store access_token, clear oauth_state
   const { error: updateError } = await supabase
     .from('integrations')
     .update({
       credentials: { shop_domain, client_id, client_secret, access_token, scope },
-      metadata: {},
+      metadata: { store_url, admin_url },
       is_active: true,
       updated_at: new Date().toISOString(),
     })

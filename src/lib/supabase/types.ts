@@ -87,6 +87,30 @@ export interface Integration {
   updated_at: string;
 }
 
+export type ProductStatus = 'NOT_IMPORTED' | 'READY_TO_IMPORT' | 'ALREADY_IMPORTED' | 'IMPORTING';
+
+export interface Product {
+  id: string;
+  organization_id: string;
+  title: string;
+  status: ProductStatus;
+  date: string | null;
+  photo_url: string | null;
+  colors: string[];
+  sizes: string[];
+  material: string | null;
+  purchase_price: number | null;
+  discount: number | null;
+  competitor_link: string | null;
+  supplier_link: string | null;
+  note: string | null;
+  season: string | null;
+  gender: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AiConfig {
   id: string;
   organization_id: string;

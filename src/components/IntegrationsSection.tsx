@@ -454,14 +454,21 @@ function IntegrationCard({
 
       {connected && provider === 'shopify' && (
         <div className="bg-ds-surface2 rounded-xl px-3.5 py-3 border border-ds-borderSoft text-xs space-y-1.5">
-          <div className="flex justify-between">
-            <span className="text-ds-muted">Store</span>
-            <span className="text-ds-text2 font-mono truncate max-w-[160px]">
-              {(integration.credentials as ShopifyCredentials).shop_domain}
+          <div className="flex justify-between gap-2">
+            <span className="text-ds-muted shrink-0">Store URL</span>
+            <span className="text-ds-text2 font-mono truncate">
+              {(integration.metadata as Record<string, string>)?.store_url
+                ?? (integration.credentials as ShopifyCredentials).shop_domain}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-ds-muted">Scopes</span>
+          <div className="flex justify-between gap-2">
+            <span className="text-ds-muted shrink-0">Admin URL</span>
+            <span className="text-ds-text2 font-mono truncate">
+              {(integration.metadata as Record<string, string>)?.admin_url ?? '—'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-ds-muted shrink-0">Scopes</span>
             <span className="text-emerald-400 font-medium">Authorized</span>
           </div>
         </div>

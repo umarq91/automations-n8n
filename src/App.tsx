@@ -11,6 +11,8 @@ const VALID_SECTIONS: ActiveSection[] = [
   "ai-config",
   "organization",
   "integrations",
+  "products-list",
+  "products-add-item",
 ];
 
 function readSectionFromUrl(): ActiveSection {

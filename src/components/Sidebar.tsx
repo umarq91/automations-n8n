@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -27,6 +27,10 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
   const { user, activeOrg } = useAuth();
   const isProductsActive = activeSection.startsWith('products-');
   const [productsOpen, setProductsOpen] = useState(isProductsActive);
+
+  useEffect(() => {
+    if (isProductsActive) setProductsOpen(true);
+  }, [isProductsActive]);
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
