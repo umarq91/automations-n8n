@@ -119,6 +119,33 @@ export interface Product {
   updated_at: string;
 }
 
+export type CreditType = 'listing' | 'support' | 'optimization';
+
+export interface OrganizationCredits {
+  id: string;
+  organization_id: string;
+  listing_credits_total: number;
+  listing_credits_used: number;
+  support_credits_total: number;
+  support_credits_used: number;
+  optimization_credits_total: number;
+  optimization_credits_used: number;
+  period_start: string;
+  period_end: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreditUsageLog {
+  id: string;
+  organization_id: string;
+  credit_type: CreditType;
+  amount: number;
+  reference_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
 export interface ShopifyProductImage {
   src: string;
   alt: string | null;

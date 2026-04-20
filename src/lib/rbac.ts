@@ -15,6 +15,7 @@ const ROLE_SECTIONS: Record<MemberRole, ActiveSection[]> = {
     'products-add-item',
     'products-edit-item',
     'members-add',
+    'credits',
   ],
   admin: [
     'overview',
@@ -26,6 +27,7 @@ const ROLE_SECTIONS: Record<MemberRole, ActiveSection[]> = {
     'products-add-item',
     'products-edit-item',
     'members-add',
+    'credits',
   ],
   member: [
     'overview',

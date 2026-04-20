@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, type LucideIcon } from 'lucide-react';
+import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, CreditCard, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { canAccess } from '../lib/rbac';
 
-export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config' | 'products-list' | 'products-add-item' | 'products-edit-item' | 'members-add';
+export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config' | 'products-list' | 'products-add-item' | 'products-edit-item' | 'members-add' | 'credits';
 
 interface SidebarProps {
   activeSection: ActiveSection;
@@ -11,10 +11,11 @@ interface SidebarProps {
 }
 
 const navItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
-  { id: 'organization', label: 'Organization',    icon: Building2 },
-  { id: 'email',        label: 'Email Templates', icon: Mail },
-  { id: 'ai-config',   label: 'AI Settings',      icon: Bot },
-  { id: 'integrations', label: 'Integrations',    icon: Plug },
+  { id: 'organization', label: 'Organization',    icon: Building2  },
+  { id: 'email',        label: 'Email Templates', icon: Mail       },
+  { id: 'ai-config',   label: 'AI Settings',      icon: Bot        },
+  { id: 'integrations', label: 'Integrations',    icon: Plug       },
+  { id: 'credits',      label: 'Credits',          icon: CreditCard },
 ];
 
 const MAINTENANCE_MESSAGE = 'We are currently performing scheduled maintenance. Some features may be unavailable.';
