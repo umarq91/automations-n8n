@@ -108,12 +108,14 @@ export interface Product {
   currency: ProductCurrency | string | null;
   discount: number | null;
   competitor_link: string | null;
+  use_competitor_title: boolean;
   supplier_link: string | null;
   note: string | null;
   season: string | null;
   gender: string | null;
   shopify_product_url: string | null;
   shopify_admin_url: string | null;
+  to_optimize: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;

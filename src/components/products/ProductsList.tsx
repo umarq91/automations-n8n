@@ -57,7 +57,11 @@ function ProductPhoto({ url }: { url: string | null }) {
   );
 }
 
-function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
+function ProductCard({ product, onDelete, onEdit }: {
+  product: Product;
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+}) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 

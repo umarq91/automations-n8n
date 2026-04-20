@@ -4,6 +4,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
+import { Switch } from '../ui/switch';
 import { useAuth } from '../../contexts/AuthContext';
 import { createProduct, uploadProductPhoto } from '../../lib/supabase/products';
 import type { ProductCurrency, ProductStatus } from '../../lib/supabase/types';
@@ -12,6 +13,7 @@ import { currencyOptions } from '../../lib/constants';
 
 interface AddItemFormData {
   title: string;
+  use_competitor_title: boolean;
   competitor_link: string;
   date: string;
   photo: File | null;
@@ -28,10 +30,12 @@ interface AddItemFormData {
   gender: string;
   status: string;
   discount: string;
+  to_optimize: boolean;
 }
 
 const emptyForm: AddItemFormData = {
   title: '',
+  use_competitor_title: false,
   competitor_link: '',
   date: '',
   photo: null,
@@ -48,6 +52,7 @@ const emptyForm: AddItemFormData = {
   gender: '',
   status: 'NOT_IMPORTED',
   discount: '',
+  to_optimize: false,
 };
 
 
@@ -189,6 +194,7 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
         currency,
         discount: form.discount ? parseFloat(form.discount) : null,
+        use_competitor_title: form.use_competitor_title,
         competitor_link: form.competitor_link.trim() || null,
         supplier_link: form.supplier_link.trim() || null,
         note: form.note.trim() || null,
@@ -196,6 +202,7 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         gender: form.gender || null,
         shopify_product_url: null,
         shopify_admin_url: null,
+        to_optimize: form.to_optimize,
       });
 
       // 2. Upload photo if provided, then update the record
@@ -252,6 +259,17 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
                 value={form.title}
                 onChange={(e) => set('title', e.target.value)}
               />
+              <div className="flex items-center justify-between mt-3 px-3.5 py-2.5 bg-ds-surface2 border border-ds-border rounded-xl">
+                <div>
+                  <p className="text-ds-text2 text-xs font-medium">Use competitor's title</p>
+                  <p className="text-ds-muted text-[11px] mt-0.5">When enabled, the workflow will use the competitor's title instead of yours.</p>
+                </div>
+                <Switch
+                  id="item-use-competitor-title"
+                  checked={form.use_competitor_title}
+                  onCheckedChange={(val) => set('use_competitor_title', val)}
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="item-date">Date</Label>
@@ -497,6 +515,23 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
             value={form.note}
             onChange={(e) => set('note', e.target.value)}
           />
+        </section>
+
+        {/* Optimize */}
+        <section className="card p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-ds-text text-sm font-semibold">Queue for AI Optimization</h2>
+              <p className="text-ds-muted text-xs mt-1 leading-relaxed">
+                When enabled, our AI workflow will automatically optimize this product's title, description, and tags before listing it on Shopify.
+              </p>
+            </div>
+            <Switch
+              id="add-to-optimize"
+              checked={form.to_optimize}
+              onCheckedChange={(val) => set('to_optimize', val)}
+            />
+          </div>
         </section>
 
         {/* Actions */}
