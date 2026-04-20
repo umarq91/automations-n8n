@@ -194,6 +194,8 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         note: form.note.trim() || null,
         season: form.season || null,
         gender: form.gender || null,
+        shopify_product_url: null,
+        shopify_admin_url: null,
       });
 
       // 2. Upload photo if provided, then update the record

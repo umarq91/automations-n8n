@@ -119,6 +119,64 @@ export interface Product {
   updated_at: string;
 }
 
+export interface ShopifyProductImage {
+  src: string;
+  alt: string | null;
+  position: number;
+}
+
+export interface ShopifyProductOption {
+  name: string;
+  position: number;
+  values: string[];
+}
+
+export interface ShopifyProductVariant {
+  id: number;
+  title: string;
+  sku: string | null;
+  price: number | null;
+  compare_at_price: number | null;
+  inventory_quantity: number | null;
+  option1: string | null;
+  option2: string | null;
+  option3: string | null;
+}
+
+export interface ShopifyProduct {
+  id: string;
+  organization_id: string;
+  shopify_product_id: number;
+  title: string;
+  handle: string | null;
+  status: string | null;
+  vendor: string | null;
+  product_type: string | null;
+  tags: string[];
+  image_url: string | null;
+  images: ShopifyProductImage[];
+  options: ShopifyProductOption[];
+  variants: ShopifyProductVariant[];
+  sku: string | null;
+  price: number | null;
+  compare_at_price: number | null;
+  price_min: number | null;
+  price_max: number | null;
+  total_inventory: number | null;
+  currency: string | null;
+  variants_count: number;
+  admin_url: string | null;
+  storefront_url: string | null;
+  shopify_created_at: string | null;
+  shopify_updated_at: string | null;
+  published_at: string | null;
+  body_html: string | null;
+  description: string | null;
+  synced_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AiConfig {
   id: string;
   organization_id: string;

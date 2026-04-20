@@ -1,10 +1,32 @@
 import { useEffect, useState } from 'react';
-import { Package, PackagePlus, Tag, Ruler, Layers, DollarSign, ExternalLink, Trash2, Loader2, Pencil } from 'lucide-react';
+import {
+  Package,
+  PackagePlus,
+  Tag,
+  Ruler,
+  Layers,
+  DollarSign,
+  ExternalLink,
+  Trash2,
+  Loader2,
+  Pencil,
+  ShoppingBag,
+  RefreshCw,
+  AlertTriangle,
+  Plug,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProducts, deleteProduct } from '../../lib/supabase/products';
-import type { Product } from '../../lib/supabase/types';
+import {
+  getShopifyProducts,
+  getShopifyConnection,
+  syncShopifyProducts,
+  type ShopifyConnection,
+} from '../../lib/supabase/shopifyProducts';
+import type { Product, ShopifyProduct } from '../../lib/supabase/types';
 import type { ActiveSection } from '../Sidebar';
 import { Button } from '../ui/button';
+import ShopifyProductCard from './ShopifyProductCard';
 
 const STATUS_LABEL: Record<string, string> = {
   NOT_IMPORTED:     'Not Imported',
@@ -180,11 +202,33 @@ interface ProductsListProps {
   onNavigate: (section: ActiveSection, productId?: string) => void;
 }
 
+type TabId = 'listed' | 'shopify';
+
+function formatRelative(iso: string | null): string | null {
+  if (!iso) return null;
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 export default function ProductsList({ onNavigate }: ProductsListProps) {
   const { activeOrg } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabId>('listed');
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [shopifyProducts, setShopifyProducts] = useState<ShopifyProduct[]>([]);
+  const [connection, setConnection] = useState<ShopifyConnection | null>(null);
+  const [shopifyLoading, setShopifyLoading] = useState(true);
+  const [shopifyError, setShopifyError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     if (!activeOrg) return;
@@ -195,9 +239,44 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
       .finally(() => setLoading(false));
   }, [activeOrg]);
 
+  useEffect(() => {
+    if (!activeOrg) return;
+    setShopifyLoading(true);
+    setShopifyError(null);
+    Promise.all([getShopifyConnection(activeOrg.id), getShopifyProducts(activeOrg.id)])
+      .then(([conn, prods]) => {
+        setConnection(conn);
+        setShopifyProducts(prods);
+      })
+      .catch((err) => setShopifyError(err.message ?? 'Failed to load Shopify data.'))
+      .finally(() => setShopifyLoading(false));
+  }, [activeOrg]);
+
+  async function handleResync() {
+    if (!activeOrg || syncing) return;
+    setSyncing(true);
+    setSyncMessage(null);
+    const res = await syncShopifyProducts(activeOrg.id);
+    if (res.ok) {
+      setSyncMessage({ kind: 'ok', text: `Synced ${res.count} product${res.count !== 1 ? 's' : ''}.` });
+      const [conn, prods] = await Promise.all([
+        getShopifyConnection(activeOrg.id),
+        getShopifyProducts(activeOrg.id),
+      ]);
+      setConnection(conn);
+      setShopifyProducts(prods);
+    } else {
+      setSyncMessage({ kind: 'err', text: res.message });
+    }
+    setSyncing(false);
+  }
+
+  const listedCount = loading ? null : products.length;
+  const shopifyCount = shopifyLoading ? null : shopifyProducts.length;
+
   return (
     <div className="animate-fade-in">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center shadow-accent-glow">
             <Package size={18} className="text-white" />
@@ -205,54 +284,237 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
           <div>
             <h1 className="text-ds-text font-bold text-xl tracking-tight">Products</h1>
             <p className="text-ds-muted text-sm mt-0.5">
-              {loading ? 'Loading…' : `${products.length} item${products.length !== 1 ? 's' : ''} in your catalog`}
+              {activeTab === 'listed'
+                ? loading ? 'Loading…' : `${products.length} item${products.length !== 1 ? 's' : ''} in your catalog`
+                : shopifyLoading ? 'Loading…' : `${shopifyProducts.length} product${shopifyProducts.length !== 1 ? 's' : ''} from Shopify`}
             </p>
           </div>
         </div>
 
-        <Button variant="primary" size="default" onClick={() => onNavigate('products-add-item')}>
-          <PackagePlus size={14} />
-          Add Item
-        </Button>
+        {activeTab === 'listed' ? (
+          <Button variant="primary" size="default" onClick={() => onNavigate('products-add-item')}>
+            <PackagePlus size={14} />
+            Add Item
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            size="default"
+            onClick={handleResync}
+            disabled={syncing || !connection?.connected}
+          >
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing…' : 'Resync'}
+          </Button>
+        )}
       </div>
 
-      {loading && (
-        <div className="card flex items-center justify-center py-20">
-          <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
-        </div>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-ds-border mb-6">
+        <TabButton
+          active={activeTab === 'listed'}
+          onClick={() => setActiveTab('listed')}
+          icon={<Package size={13} />}
+          label="Listed Products"
+          count={listedCount}
+        />
+        <TabButton
+          active={activeTab === 'shopify'}
+          onClick={() => setActiveTab('shopify')}
+          icon={<ShoppingBag size={13} />}
+          label="Shopify Products"
+          count={shopifyCount}
+        />
+      </div>
+
+      {activeTab === 'listed' && (
+        <ListedTab
+          loading={loading}
+          error={error}
+          products={products}
+          onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
+          onEdit={(id) => onNavigate('products-edit-item', id)}
+          onAdd={() => onNavigate('products-add-item')}
+        />
       )}
 
-      {!loading && error && (
-        <div className="card flex items-center justify-center py-20">
-          <span className="text-red-400 text-sm">{error}</span>
-        </div>
+      {activeTab === 'shopify' && (
+        <ShopifyTab
+          loading={shopifyLoading}
+          error={shopifyError}
+          connection={connection}
+          products={shopifyProducts}
+          syncing={syncing}
+          syncMessage={syncMessage}
+          onGoToIntegrations={() => onNavigate('integrations')}
+          onResync={handleResync}
+        />
       )}
+    </div>
+  );
+}
 
-      {!loading && !error && products.length === 0 && (
+function TabButton({ active, onClick, icon, label, count }: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  count: number | null;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+        active
+          ? 'text-ds-accent border-ds-accent'
+          : 'text-ds-muted border-transparent hover:text-ds-text2'
+      }`}
+    >
+      {icon}
+      {label}
+      {count !== null && (
+        <span className={`text-xs px-1.5 py-0.5 rounded ${
+          active ? 'bg-ds-accent/10 text-ds-accent' : 'bg-ds-surface2 text-ds-muted'
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function ListedTab({ loading, error, products, onDelete, onEdit, onAdd }: {
+  loading: boolean;
+  error: string | null;
+  products: Product[];
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+  onAdd: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="card flex items-center justify-center py-20">
+        <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card flex items-center justify-center py-20">
+        <span className="text-red-400 text-sm">{error}</span>
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="card flex flex-col items-center justify-center py-20 px-8 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-ds-surface2 border border-ds-border flex items-center justify-center mb-5">
+          <Package size={28} className="text-ds-muted" />
+        </div>
+        <h2 className="text-ds-text font-semibold text-base mb-2">No products yet</h2>
+        <p className="text-ds-muted text-sm max-w-xs leading-relaxed mb-5">
+          Your catalog is empty. Add your first item to get started.
+        </p>
+        <Button variant="primary" onClick={onAdd}>
+          <PackagePlus size={14} />
+          Add your first item
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {products.map((p) => (
+        <ProductCard key={p.id} product={p} onDelete={onDelete} onEdit={onEdit} />
+      ))}
+    </div>
+  );
+}
+
+function ShopifyTab({
+  loading, error, connection, products, syncing, syncMessage, onGoToIntegrations, onResync,
+}: {
+  loading: boolean;
+  error: string | null;
+  connection: ShopifyConnection | null;
+  products: ShopifyProduct[];
+  syncing: boolean;
+  syncMessage: { kind: 'ok' | 'err'; text: string } | null;
+  onGoToIntegrations: () => void;
+  onResync: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="card flex items-center justify-center py-20">
+        <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card flex items-center justify-center py-20">
+        <span className="text-red-400 text-sm">{error}</span>
+      </div>
+    );
+  }
+
+  if (!connection?.connected) {
+    return (
+      <div className="card flex flex-col items-center justify-center py-20 px-8 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
+          <AlertTriangle size={28} className="text-amber-400" />
+        </div>
+        <h2 className="text-ds-text font-semibold text-base mb-2">Shopify isn't connected</h2>
+        <p className="text-ds-muted text-sm max-w-sm leading-relaxed mb-5">
+          Connect your Shopify store from the Integrations page to pull and sync products here.
+        </p>
+        <Button variant="primary" onClick={onGoToIntegrations}>
+          <Plug size={14} />
+          Go to Integrations
+        </Button>
+      </div>
+    );
+  }
+
+  const lastSynced = formatRelative(connection.lastSyncAt);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-ds-muted text-xs">
+          {lastSynced ? `Last synced ${lastSynced}` : 'Not synced yet — click Resync to fetch products.'}
+        </p>
+        {syncMessage && (
+          <span className={`text-xs ${syncMessage.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>
+            {syncMessage.text}
+          </span>
+        )}
+      </div>
+
+      {products.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-20 px-8 text-center">
           <div className="w-16 h-16 rounded-2xl bg-ds-surface2 border border-ds-border flex items-center justify-center mb-5">
-            <Package size={28} className="text-ds-muted" />
+            <ShoppingBag size={28} className="text-ds-muted" />
           </div>
-          <h2 className="text-ds-text font-semibold text-base mb-2">No products yet</h2>
+          <h2 className="text-ds-text font-semibold text-base mb-2">No Shopify products yet</h2>
           <p className="text-ds-muted text-sm max-w-xs leading-relaxed mb-5">
-            Your catalog is empty. Add your first item to get started.
+            {connection.lastSyncAt
+              ? 'Your store has no products, or none matched the sync.'
+              : 'Click Resync to fetch products from your Shopify store.'}
           </p>
-          <Button variant="primary" onClick={() => onNavigate('products-add-item')}>
-            <PackagePlus size={14} />
-            Add your first item
+          <Button variant="primary" onClick={onResync} disabled={syncing}>
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing…' : 'Resync now'}
           </Button>
         </div>
-      )}
-
-      {!loading && !error && products.length > 0 && (
+      ) : (
         <div className="space-y-3">
           {products.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
-              onEdit={(id) => onNavigate('products-edit-item', id)}
-            />
+            <ShopifyProductCard key={p.id} product={p} />
           ))}
         </div>
       )}
