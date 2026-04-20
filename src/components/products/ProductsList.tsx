@@ -139,6 +139,16 @@ function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete
                 <ExternalLink size={11} /> Supplier
               </a>
             )}
+            {product.shopify_product_url && (
+              <a href={product.shopify_product_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
+                <ExternalLink size={11} /> Shopify
+              </a>
+            )}
+            {product.shopify_admin_url && (
+              <a href={product.shopify_admin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                <ExternalLink size={11} /> Admin
+              </a>
+            )}
             <button
               onClick={() => onEdit(product.id)}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent transition-all"

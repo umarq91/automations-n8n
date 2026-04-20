@@ -112,6 +112,8 @@ export interface Product {
   note: string | null;
   season: string | null;
   gender: string | null;
+  shopify_product_url: string | null;
+  shopify_admin_url: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
