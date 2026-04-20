@@ -4,6 +4,7 @@ import IntegrationsSection from './IntegrationsSection';
 import AIConfigSection from './AIConfigSection';
 import ProductsSection from './products/ProductsSection';
 import AddMemberPage from './members/AddMemberPage';
+import CreditsSection from './CreditsSection';
 import type { ActiveSection } from './Sidebar';
 import { useAuth } from '../contexts/AuthContext';
 import { canAccess } from '../lib/rbac';
@@ -46,6 +47,7 @@ function Dashboard({ activeSection, editingProductId, onNavigate }: DashboardPro
           <AddMemberPage onNavigate={onNavigate} />
         </div>
       )}
+      {activeSection === 'credits' && <CreditsSection />}
     </div>
   );
 }
