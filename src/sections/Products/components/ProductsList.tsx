@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   Package, PackagePlus, Tag, Ruler, Layers, DollarSign,
   ExternalLink, Trash2, Loader2, Pencil, ShoppingBag,
-  RefreshCw, AlertTriangle, Plug,
+  RefreshCw, AlertTriangle, Plug, Zap, X, Check,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { ProductModel } from '../../../models/ProductModel';
-import { ShopifyProductModel, type ShopifyConnection } from '../../../models/ShopifyProductModel';
-import type { Product, ShopifyProduct } from '../../../lib/supabase/types';
+import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
+import type { Product } from '../../../lib/supabase/types';
 import { PRODUCT_STATUS_LABEL, PRODUCT_STATUS_CLASS } from '../../../constants/productStatus';
 import { Button } from '../../../components/ui/button';
 import { formatRelative } from '../../../lib/utils';
@@ -34,12 +33,26 @@ function ProductPhoto({ url }: { url: string | null }) {
 function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [toOptimize, setToOptimize] = useState(product.to_optimize);
+  const [optimizedAt, setOptimizedAt] = useState(product.optimized_at ?? null);
+  const [optimizing, setOptimizing] = useState(false);
 
   async function handleDelete() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeleting(true);
     try { await ProductModel.delete(product.id); onDelete(product.id); }
     catch { setDeleting(false); setConfirmDelete(false); }
+  }
+
+  async function handleOptimizeToggle() {
+    const next = !toOptimize;
+    setOptimizing(true);
+    try {
+      await ProductModel.setOptimizeStatus(product.id, next, null);
+      setToOptimize(next);
+      if (next) setOptimizedAt(null);
+    } catch { /* ignore */ }
+    setOptimizing(false);
   }
 
   return (
@@ -96,6 +109,17 @@ function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete
             {product.supplier_link && <a href={product.supplier_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"><ExternalLink size={11} /> Supplier</a>}
             {product.shopify_product_url && <a href={product.shopify_product_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"><ExternalLink size={11} /> Shopify</a>}
             {product.shopify_admin_url && <a href={product.shopify_admin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"><ExternalLink size={11} /> Admin</a>}
+            <button onClick={handleOptimizeToggle} disabled={optimizing}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                toOptimize
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
+                  : optimizedAt
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                    : 'border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent'
+              }`}>
+              {optimizing ? <Loader2 size={11} className="animate-spin" /> : toOptimize ? <X size={11} /> : optimizedAt ? <Check size={11} /> : <Zap size={11} />}
+              {toOptimize ? 'Queued' : optimizedAt ? 'Optimized' : 'Optimize'}
+            </button>
             <button onClick={() => onEdit(product.id)} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent transition-all">
               <Pencil size={11} />Edit
             </button>
@@ -132,7 +156,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState<string | null>(null);
 
-  const [shopifyProducts, setShopifyProducts] = useState<ShopifyProduct[]>([]);
+  const [shopifyProducts, setShopifyProducts] = useState<Product[]>([]);
   const [connection,      setConnection]      = useState<ShopifyConnection | null>(null);
   const [shopifyLoading,  setShopifyLoading]  = useState(true);
   const [shopifyError,    setShopifyError]    = useState<string | null>(null);
@@ -152,7 +176,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     if (!activeOrg) return;
     setShopifyLoading(true);
     setShopifyError(null);
-    Promise.all([ShopifyProductModel.getConnection(activeOrg.id), ShopifyProductModel.getAll(activeOrg.id)])
+    Promise.all([ProductModel.getConnection(activeOrg.id), ProductModel.getAllShopify(activeOrg.id)])
       .then(([conn, prods]) => { setConnection(conn); setShopifyProducts(prods); })
       .catch((err) => setShopifyError(err.message ?? 'Failed to load Shopify data.'))
       .finally(() => setShopifyLoading(false));
@@ -162,10 +186,10 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     if (!activeOrg || syncing) return;
     setSyncing(true);
     setSyncMessage(null);
-    const res = await ShopifyProductModel.sync(activeOrg.id);
+    const res = await ProductModel.sync(activeOrg.id);
     if (res.ok) {
       setSyncMessage({ kind: 'ok', text: `Synced ${res.count} product${res.count !== 1 ? 's' : ''}.` });
-      const [conn, prods] = await Promise.all([ShopifyProductModel.getConnection(activeOrg.id), ShopifyProductModel.getAll(activeOrg.id)]);
+      const [conn, prods] = await Promise.all([ProductModel.getConnection(activeOrg.id), ProductModel.getAllShopify(activeOrg.id)]);
       setConnection(conn);
       setShopifyProducts(prods);
     } else {

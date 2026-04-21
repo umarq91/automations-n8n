@@ -119,6 +119,12 @@ export interface Product {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // shopify merge fields
+  source?: 'manual' | 'shopify';
+  shopify_id?: number | null;
+  shopify_status?: string | null;
+  optimized_at?: string | null;
+  metadata?: ShopifyProductMeta | null;
 }
 
 export type CreditType = 'listing' | 'support' | 'optimization';
@@ -172,17 +178,11 @@ export interface ShopifyProductVariant {
   option3: string | null;
 }
 
-export interface ShopifyProduct {
-  id: string;
-  organization_id: string;
-  shopify_product_id: number;
-  title: string;
+export interface ShopifyProductMeta {
   handle: string | null;
-  status: string | null;
   vendor: string | null;
   product_type: string | null;
   tags: string[];
-  image_url: string | null;
   images: ShopifyProductImage[];
   options: ShopifyProductOption[];
   variants: ShopifyProductVariant[];
@@ -194,16 +194,12 @@ export interface ShopifyProduct {
   total_inventory: number | null;
   currency: string | null;
   variants_count: number;
-  admin_url: string | null;
-  storefront_url: string | null;
-  shopify_created_at: string | null;
-  shopify_updated_at: string | null;
-  published_at: string | null;
   body_html: string | null;
   description: string | null;
-  synced_at: string;
-  created_at: string;
-  updated_at: string;
+  published_at: string | null;
+  shopify_created_at: string | null;
+  shopify_updated_at: string | null;
+  synced_at: string | null;
 }
 
 export interface AiConfig {

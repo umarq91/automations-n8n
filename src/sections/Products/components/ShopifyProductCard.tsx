@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
   Package, ExternalLink, Tag, Boxes, DollarSign, Calendar,
-  Layers, Copy, Check, Image as ImageIcon,
+  Layers, Copy, Check, Image as ImageIcon, Zap, X, Loader2,
 } from 'lucide-react';
-import type { ShopifyProduct, ShopifyProductVariant } from '../../../lib/supabase/types';
+import type { Product, ShopifyProductMeta, ShopifyProductVariant } from '../../../lib/supabase/types';
+import { ProductModel } from '../../../models/ProductModel';
 import { formatDate, formatRelative } from '../../../lib/utils';
 
 const STATUS_CLASS: Record<string, string> = {
@@ -13,6 +14,20 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 const DASH = '—';
+
+const EMPTY_META: ShopifyProductMeta = {
+  handle: null, vendor: null, product_type: null,
+  tags: [], images: [], options: [], variants: [],
+  sku: null, price: null, compare_at_price: null,
+  price_min: null, price_max: null, total_inventory: null,
+  currency: null, variants_count: 0, body_html: null,
+  description: null, published_at: null,
+  shopify_created_at: null, shopify_updated_at: null, synced_at: null,
+};
+
+function getMeta(product: Product): ShopifyProductMeta {
+  return { ...EMPTY_META, ...(product.metadata ?? {}) };
+}
 
 function formatPrice(value: number | null, currency: string | null): string {
   if (value == null) return DASH;
@@ -40,7 +55,7 @@ function variantLabel(v: ShopifyProductVariant): string {
   return parts.length ? parts.join(' / ') : (v.title || 'Default');
 }
 
-function ImageGallery({ images, fallback, title }: { images: ShopifyProduct['images']; fallback: string | null; title: string }) {
+function ImageGallery({ images, fallback, title }: { images: ShopifyProductMeta['images']; fallback: string | null; title: string }) {
   const list = images.length ? images : fallback ? [{ src: fallback, alt: null, position: 1 }] : [];
   const [activeIdx, setActiveIdx] = useState(0);
   const active = list[activeIdx];
@@ -104,56 +119,71 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function ShopifyProductCard({ product }: { product: ShopifyProduct }) {
+export default function ShopifyProductCard({ product }: { product: Product }) {
   const [showAllVariants, setShowAllVariants] = useState(false);
-  const statusKey = (product.status ?? '').toLowerCase();
+  const [toOptimize, setToOptimize] = useState(product.to_optimize);
+  const [optimizedAt, setOptimizedAt] = useState(product.optimized_at ?? null);
+  const [optimizing, setOptimizing] = useState(false);
+  const meta = getMeta(product);
+
+  async function handleOptimizeToggle() {
+    const next = !toOptimize;
+    setOptimizing(true);
+    try {
+      await ProductModel.setOptimizeStatus(product.id, next, null);
+      setToOptimize(next);
+      if (next) setOptimizedAt(null);
+    } catch { /* ignore */ }
+    setOptimizing(false);
+  }
+  const statusKey = (product.shopify_status ?? '').toLowerCase();
   const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.archived;
-  const invTone = inventoryTone(product.total_inventory);
-  const visibleVariants = showAllVariants ? product.variants : product.variants.slice(0, 5);
-  const hiddenCount = product.variants.length - visibleVariants.length;
-  const meta = [product.vendor, product.product_type].filter(Boolean).join(' · ') || DASH;
+  const invTone = inventoryTone(meta.total_inventory);
+  const visibleVariants = showAllVariants ? meta.variants : meta.variants.slice(0, 5);
+  const hiddenCount = meta.variants.length - visibleVariants.length;
+  const metaLabel = [meta.vendor, meta.product_type].filter(Boolean).join(' · ') || DASH;
 
   return (
     <div className="card-elevated p-5 hover:border-ds-border/80 transition-colors">
       <div className="flex gap-5">
-        <ImageGallery images={product.images} fallback={product.image_url} title={product.title} />
+        <ImageGallery images={meta.images} fallback={product.photo_url ?? null} title={product.title} />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="min-w-0">
               <h3 className="text-ds-text font-semibold text-lg leading-tight truncate">{product.title}</h3>
-              <p className="text-ds-muted text-xs mt-1">{meta}</p>
+              <p className="text-ds-muted text-xs mt-1">{metaLabel}</p>
             </div>
             <span className={`inline-flex items-center px-2.5 py-1 rounded-md border text-xs font-medium shrink-0 capitalize ${statusClass}`}>
-              {product.status ?? 'unknown'}
+              {product.shopify_status ?? 'unknown'}
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5 mb-3">
-            <CopyChip text={product.sku} label="SKU" />
-            <CopyChip text={product.handle} label="Handle" />
-            <CopyChip text={String(product.shopify_product_id)} label="ID" />
+            <CopyChip text={meta.sku} label="SKU" />
+            <CopyChip text={meta.handle} label="Handle" />
+            <CopyChip text={product.shopify_id != null ? String(product.shopify_id) : null} label="ID" />
           </div>
           <p className="text-ds-text2 text-xs leading-relaxed line-clamp-2 mb-3 min-h-[2.2em]">
-            {product.description || <span className="italic text-ds-muted">No description</span>}
+            {meta.description || <span className="italic text-ds-muted">No description</span>}
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
             <StatCard icon={<DollarSign size={10} />} label="Price"
-              value={formatPriceRange(product.price_min, product.price_max, product.currency)} sublabel={product.currency ?? DASH} />
+              value={formatPriceRange(meta.price_min, meta.price_max, meta.currency)} sublabel={meta.currency ?? DASH} />
             <StatCard icon={<Boxes size={10} />} label="Inventory"
-              value={<span className="flex items-center gap-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full ${invTone.dot}`} />{product.total_inventory ?? DASH}</span>}
+              value={<span className="flex items-center gap-1.5"><span className={`inline-block w-1.5 h-1.5 rounded-full ${invTone.dot}`} />{meta.total_inventory ?? DASH}</span>}
               sublabel={<span className={invTone.text}>{invTone.label}</span>} />
             <StatCard icon={<Layers size={10} />} label="Variants"
-              value={product.variants_count} sublabel={product.options.map((o) => o.name).join(' · ') || 'no options'} />
+              value={meta.variants_count} sublabel={meta.options.map((o) => o.name).join(' · ') || 'no options'} />
             <StatCard icon={<Calendar size={10} />} label="Published"
-              value={formatDate(product.published_at)}
-              sublabel={product.published_at ? (formatRelative(product.published_at) ?? DASH) : 'not published'} />
+              value={formatDate(meta.published_at)}
+              sublabel={meta.published_at ? (formatRelative(meta.published_at) ?? DASH) : 'not published'} />
           </div>
         </div>
       </div>
 
       <Section title="Options">
-        {product.options.length === 0 ? <p className="text-ds-muted text-xs italic">No options defined</p> : (
+        {meta.options.length === 0 ? <p className="text-ds-muted text-xs italic">No options defined</p> : (
           <div className="space-y-1.5">
-            {product.options.map((opt) => (
+            {meta.options.map((opt) => (
               <div key={opt.name} className="flex items-start gap-2 text-xs">
                 <span className="text-ds-text2 font-medium min-w-[70px]">{opt.name}</span>
                 <div className="flex flex-wrap gap-1">
@@ -165,8 +195,8 @@ export default function ShopifyProductCard({ product }: { product: ShopifyProduc
         )}
       </Section>
 
-      <Section title={`Variants (${product.variants.length})`}>
-        {product.variants.length === 0 ? <p className="text-ds-muted text-xs italic">No variants</p> : (
+      <Section title={`Variants (${meta.variants.length})`}>
+        {meta.variants.length === 0 ? <p className="text-ds-muted text-xs italic">No variants</p> : (
           <>
             <div className="bg-ds-surface2 border border-ds-borderSoft rounded-lg divide-y divide-ds-borderSoft overflow-hidden">
               {visibleVariants.map((v) => {
@@ -175,7 +205,7 @@ export default function ShopifyProductCard({ product }: { product: ShopifyProduc
                   <div key={v.id} className="flex items-center gap-3 px-3 py-2 text-xs hover:bg-ds-hover/50 transition-colors">
                     <span className="text-ds-text font-medium flex-1 truncate min-w-0">{variantLabel(v)}</span>
                     <span className="font-mono text-ds-muted text-[11px] w-24 truncate">{v.sku ?? DASH}</span>
-                    <span className="text-ds-text2 w-20 text-right">{formatPrice(v.price, product.currency)}</span>
+                    <span className="text-ds-text2 w-20 text-right">{formatPrice(v.price, meta.currency)}</span>
                     <span className={`flex items-center gap-1.5 w-28 justify-end ${tone.text}`}>
                       <span className={`inline-block w-1.5 h-1.5 rounded-full ${tone.dot}`} />
                       {v.inventory_quantity == null ? 'untracked' : `${v.inventory_quantity} ${tone.label}`}
@@ -194,11 +224,11 @@ export default function ShopifyProductCard({ product }: { product: ShopifyProduc
       </Section>
 
       <Section title="Tags">
-        {product.tags.length === 0 ? <p className="text-ds-muted text-xs italic">No tags</p> : (
+        {meta.tags.length === 0 ? <p className="text-ds-muted text-xs italic">No tags</p> : (
           <div className="flex items-start gap-2">
             <Tag size={11} className="text-ds-muted shrink-0 mt-1" />
             <div className="flex flex-wrap gap-1">
-              {product.tags.map((t) => <span key={t} className="text-[11px] text-ds-text2 bg-ds-hover px-1.5 py-0.5 rounded">#{t}</span>)}
+              {meta.tags.map((t) => <span key={t} className="text-[11px] text-ds-text2 bg-ds-hover px-1.5 py-0.5 rounded">#{t}</span>)}
             </div>
           </div>
         )}
@@ -206,21 +236,32 @@ export default function ShopifyProductCard({ product }: { product: ShopifyProduc
 
       <div className="mt-4 pt-3 border-t border-ds-borderSoft flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ds-muted min-w-0">
-          <span className="flex items-center gap-1"><ImageIcon size={10} />{product.images.length} image{product.images.length !== 1 ? 's' : ''}</span>
+          <span className="flex items-center gap-1"><ImageIcon size={10} />{meta.images.length} image{meta.images.length !== 1 ? 's' : ''}</span>
           <span>·</span>
-          <span>Created {formatDate(product.shopify_created_at)}</span>
+          <span>Created {formatDate(meta.shopify_created_at)}</span>
           <span>·</span>
-          <span>Updated {formatRelative(product.shopify_updated_at) ?? DASH}</span>
+          <span>Updated {formatRelative(meta.shopify_updated_at) ?? DASH}</span>
           <span>·</span>
-          <span>Synced {formatRelative(product.synced_at) ?? DASH}</span>
+          <span>Synced {formatRelative(meta.synced_at) ?? DASH}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <a href={product.storefront_url ?? '#'} target="_blank" rel="noopener noreferrer" aria-disabled={!product.storefront_url}
-            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 transition-colors ${product.storefront_url ? 'hover:bg-emerald-500/10' : 'opacity-40 pointer-events-none'}`}>
+          <button onClick={handleOptimizeToggle} disabled={optimizing}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
+              toOptimize
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
+                : optimizedAt
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                  : 'border-ds-border text-ds-muted bg-transparent hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent'
+            }`}>
+            {optimizing ? <Loader2 size={11} className="animate-spin" /> : toOptimize ? <X size={11} /> : optimizedAt ? <Check size={11} /> : <Zap size={11} />}
+            {toOptimize ? 'Queued' : optimizedAt ? 'Optimized' : 'Optimize'}
+          </button>
+          <a href={product.shopify_product_url ?? '#'} target="_blank" rel="noopener noreferrer" aria-disabled={!product.shopify_product_url}
+            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 transition-colors ${product.shopify_product_url ? 'hover:bg-emerald-500/10' : 'opacity-40 pointer-events-none'}`}>
             <ExternalLink size={11} />Storefront
           </a>
-          <a href={product.admin_url ?? '#'} target="_blank" rel="noopener noreferrer" aria-disabled={!product.admin_url}
-            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-violet-500/20 bg-violet-500/5 text-violet-400 transition-colors ${product.admin_url ? 'hover:bg-violet-500/10' : 'opacity-40 pointer-events-none'}`}>
+          <a href={product.shopify_admin_url ?? '#'} target="_blank" rel="noopener noreferrer" aria-disabled={!product.shopify_admin_url}
+            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-violet-500/20 bg-violet-500/5 text-violet-400 transition-colors ${product.shopify_admin_url ? 'hover:bg-violet-500/10' : 'opacity-40 pointer-events-none'}`}>
             <ExternalLink size={11} />Shopify Admin
           </a>
         </div>

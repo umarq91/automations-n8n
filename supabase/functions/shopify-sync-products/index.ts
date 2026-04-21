@@ -10,6 +10,7 @@ const corsHeaders = {
 const API_VERSION = '2024-10';
 const PAGE_SIZE = 250;
 const DESCRIPTION_MAX = 500;
+const UPDATE_BATCH = 50;
 
 function respond(body: object, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -95,12 +96,29 @@ function stripHtml(html: string | null | undefined): string {
     .trim();
 }
 
+interface MappedProduct {
+  organization_id: string;
+  title: string;
+  source: 'shopify';
+  shopify_id: number;
+  shopify_status: string | null;
+  photo_url: string | null;
+  shopify_product_url: string | null;
+  shopify_admin_url: string | null;
+  status: 'NOT_IMPORTED';
+  colors: string[];
+  sizes: string[];
+  to_optimize: boolean;
+  metadata: Record<string, unknown>;
+  updated_at: string;
+}
+
 function mapProduct(
   orgId: string,
   shopDomain: string,
   currency: string | null,
   p: ShopifyApiProduct,
-) {
+): MappedProduct {
   const variants = p.variants ?? [];
   const firstVariant = variants[0];
   const variantPrices = variants.map((v) => toNumeric(v.price)).filter((n): n is number => n !== null);
@@ -140,38 +158,45 @@ function mapProduct(
     ? p.tags.split(',').map((t) => t.trim()).filter(Boolean)
     : [];
 
-  const description = stripHtml(p.body_html).slice(0, DESCRIPTION_MAX);
+  const syncedAt = new Date().toISOString();
 
   return {
     organization_id: orgId,
-    shopify_product_id: p.id,
     title: p.title ?? '',
-    handle: p.handle ?? null,
-    status: p.status ?? null,
-    vendor: p.vendor ?? null,
-    product_type: p.product_type ?? null,
-    tags,
-    image_url: firstImage,
-    images,
-    options,
-    variants: variantSummaries,
-    sku: firstVariant?.sku ?? null,
-    price: toNumeric(firstVariant?.price),
-    compare_at_price: toNumeric(firstVariant?.compare_at_price ?? null),
-    price_min: priceMin,
-    price_max: priceMax,
-    total_inventory: totalInventory,
-    currency,
-    variants_count: variants.length,
-    admin_url: `https://admin.shopify.com/store/${shopDomain.replace(/\.myshopify\.com$/, '')}/products/${p.id}`,
-    storefront_url: `https://${shopDomain}/products/${p.handle}`,
-    shopify_created_at: p.created_at ?? null,
-    shopify_updated_at: p.updated_at ?? null,
-    published_at: p.published_at ?? null,
-    body_html: p.body_html ?? null,
-    description,
-    synced_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    source: 'shopify',
+    shopify_id: p.id,
+    shopify_status: p.status ?? null,
+    photo_url: firstImage,
+    shopify_product_url: `https://${shopDomain}/products/${p.handle}`,
+    shopify_admin_url: `https://admin.shopify.com/store/${shopDomain.replace(/\.myshopify\.com$/, '')}/products/${p.id}`,
+    status: 'NOT_IMPORTED',
+    colors: [],
+    sizes: [],
+    to_optimize: false,
+    metadata: {
+      handle: p.handle ?? null,
+      vendor: p.vendor ?? null,
+      product_type: p.product_type ?? null,
+      tags,
+      images,
+      options,
+      variants: variantSummaries,
+      sku: firstVariant?.sku ?? null,
+      price: toNumeric(firstVariant?.price),
+      compare_at_price: toNumeric(firstVariant?.compare_at_price ?? null),
+      price_min: priceMin,
+      price_max: priceMax,
+      total_inventory: totalInventory,
+      currency,
+      variants_count: variants.length,
+      body_html: p.body_html ?? null,
+      description: stripHtml(p.body_html).slice(0, DESCRIPTION_MAX),
+      published_at: p.published_at ?? null,
+      shopify_created_at: p.created_at ?? null,
+      shopify_updated_at: p.updated_at ?? null,
+      synced_at: syncedAt,
+    },
+    updated_at: syncedAt,
   };
 }
 
@@ -223,7 +248,7 @@ serve(async (req) => {
   } catch { /* non-fatal */ }
 
   // Paginate through /products.json
-  const rows: ReturnType<typeof mapProduct>[] = [];
+  const rows: MappedProduct[] = [];
   let nextUrl: string | null =
     `https://${shopDomain}/admin/api/${API_VERSION}/products.json?limit=${PAGE_SIZE}`;
   let pages = 0;
@@ -251,26 +276,55 @@ serve(async (req) => {
     pages += 1;
   }
 
-  // Upsert batch
   if (rows.length > 0) {
-    const { error: upsertErr } = await supabase
-      .from('shopify_products')
-      .upsert(rows, { onConflict: 'organization_id,shopify_product_id' });
-    if (upsertErr) {
-      return respond({ ok: false, message: `Failed to save products: ${upsertErr.message}` }, 500);
+    // Get existing shopify_ids so we can split insert vs update
+    const { data: existing, error: existErr } = await supabase
+      .from('products')
+      .select('shopify_id')
+      .eq('organization_id', org_id)
+      .eq('source', 'shopify')
+      .not('shopify_id', 'is', null);
+
+    if (existErr) return respond({ ok: false, message: `Failed to check existing products: ${existErr.message}` }, 500);
+
+    const existingIds = new Set((existing ?? []).map((r: { shopify_id: number }) => r.shopify_id));
+    const newRows = rows.filter((r) => !existingIds.has(r.shopify_id));
+    const updateRows = rows.filter((r) => existingIds.has(r.shopify_id));
+
+    // Insert new products — to_optimize always false on first insert
+    if (newRows.length > 0) {
+      const { error: insertErr } = await supabase.from('products').insert(newRows);
+      if (insertErr) return respond({ ok: false, message: `Failed to insert products: ${insertErr.message}` }, 500);
+    }
+
+    // Update existing — never touch to_optimize or optimized_at
+    for (let i = 0; i < updateRows.length; i += UPDATE_BATCH) {
+      const batch = updateRows.slice(i, i + UPDATE_BATCH);
+      const results = await Promise.all(
+        batch.map(({ to_optimize: _to, ...fields }) =>
+          supabase
+            .from('products')
+            .update(fields)
+            .eq('organization_id', org_id)
+            .eq('shopify_id', fields.shopify_id)
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) return respond({ ok: false, message: `Failed to update products: ${failed.error.message}` }, 500);
     }
   }
 
-  // Delete rows that no longer exist in Shopify (removed products)
-  const ids = rows.map((r) => r.shopify_product_id);
-  if (ids.length > 0) {
+  // Delete products removed from Shopify (not in this sync)
+  const syncedShopifyIds = rows.map((r) => r.shopify_id);
+  if (syncedShopifyIds.length > 0) {
     await supabase
-      .from('shopify_products')
+      .from('products')
       .delete()
       .eq('organization_id', org_id)
-      .not('shopify_product_id', 'in', `(${ids.join(',')})`);
+      .eq('source', 'shopify')
+      .not('shopify_id', 'in', `(${syncedShopifyIds.join(',')})`);
   } else {
-    await supabase.from('shopify_products').delete().eq('organization_id', org_id);
+    await supabase.from('products').delete().eq('organization_id', org_id).eq('source', 'shopify');
   }
 
   const syncedAt = new Date().toISOString();
