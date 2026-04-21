@@ -1,13 +1,13 @@
-import EmailTemplatesSection from './EmailTemplatesSection';
-import OrganizationSection from './OrganizationSection';
-import IntegrationsSection from './IntegrationsSection';
-import AIConfigSection from './AIConfigSection';
-import ProductsSection from './products/ProductsSection';
-import AddMemberPage from './members/AddMemberPage';
-import CreditsSection from './CreditsSection';
-import type { ActiveSection } from './Sidebar';
-import { useAuth } from '../contexts/AuthContext';
-import { canAccess } from '../lib/rbac';
+import EmailSection from './sections/Email';
+import OrganizationSection from './sections/Organization';
+import IntegrationsSection from './sections/Integrations';
+import AIConfigSection from './sections/AIConfig';
+import ProductsSection from './sections/Products';
+import MembersSection from './sections/Members';
+import CreditsSection from './sections/Credits';
+import type { ActiveSection } from './components/layout/Sidebar';
+import { useAuth } from './contexts/AuthContext';
+import { canAccess } from './lib/rbac';
 import { ShieldX } from 'lucide-react';
 
 interface DashboardProps {
@@ -33,7 +33,7 @@ function Dashboard({ activeSection, editingProductId, onNavigate }: DashboardPro
 
   return (
     <div>
-      {activeSection === 'email'              && <EmailTemplatesSection />}
+      {activeSection === 'email'              && <EmailSection />}
       {activeSection === 'ai-config'          && <AIConfigSection />}
       {activeSection === 'organization'       && <OrganizationSection onNavigate={onNavigate} />}
       {activeSection === 'integrations'       && <IntegrationsSection />}
@@ -44,7 +44,7 @@ function Dashboard({ activeSection, editingProductId, onNavigate }: DashboardPro
       )}
       {activeSection === 'members-add' && (
         <div className="p-8 max-w-5xl mx-auto">
-          <AddMemberPage onNavigate={onNavigate} />
+          <MembersSection onNavigate={onNavigate} />
         </div>
       )}
       {activeSection === 'credits' && <CreditsSection />}

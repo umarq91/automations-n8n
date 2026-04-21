@@ -4,12 +4,14 @@ import {
   Shield, UserCheck, Clock, Mail, AlertCircle, Loader2,
   Pencil, Check, X, UserPlus, Truck,
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { getOrganizationMembers } from '../lib/supabase/members';
-import { updateUserProfile } from '../lib/supabase/users';
-import type { OrganizationMemberWithUser, MemberRole } from '../lib/supabase/types';
-import type { ActiveSection } from './Sidebar';
-import { Button } from './ui/button';
+import { useAuth } from '../../contexts/AuthContext';
+import { MemberModel } from '../../models/MemberModel';
+import { UserModel } from '../../models/UserModel';
+import type { OrganizationMemberWithUser, MemberRole } from '../../lib/supabase/types';
+import type { ActiveSection } from '../../components/layout/Sidebar';
+import { Button } from '../../components/ui/button';
+import { formatDate } from '../../lib/utils';
+import EmptyState from '../../components/shared/EmptyState';
 
 const PLAN_STYLES: Record<string, { label: string; className: string }> = {
   free:       { label: 'Free',       className: 'bg-ds-hover text-ds-text2' },
@@ -30,15 +32,10 @@ const STATUS_STYLES: Record<string, { dot: string; label: string; text: string }
   disabled: { dot: 'bg-ds-muted',    label: 'Disabled', text: 'text-ds-muted'    },
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
 function Avatar({ name, email, size = 'md' }: { name?: string | null; email?: string; size?: 'sm' | 'md' | 'lg' }) {
   const initials = name
     ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : email?.slice(0, 2).toUpperCase() ?? '??';
-
   const sizeClass = { sm: 'w-8 h-8 text-xs', md: 'w-10 h-10 text-sm', lg: 'w-14 h-14 text-base' }[size];
   return (
     <div className={`${sizeClass} rounded-full gradient-indigo flex items-center justify-center font-bold text-white flex-shrink-0 select-none shadow-accent-glow`}>
@@ -85,7 +82,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
     setNameSaving(true);
     setNameError(null);
     try {
-      await updateUserProfile(user.id, { full_name: trimmed });
+      await UserModel.update(user.id, { full_name: trimmed });
       await refreshUser();
       if (activeOrg) fetchMembers(activeOrg.id);
       setEditingName(false);
@@ -99,7 +96,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
   function fetchMembers(orgId: string) {
     setLoading(true);
     setError(null);
-    getOrganizationMembers(orgId)
+    MemberModel.getAll(orgId)
       .then(setMembers)
       .catch(err => setError(err?.message ?? 'Failed to load members.'))
       .finally(() => setLoading(false));
@@ -111,15 +108,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
   }, [activeOrg?.id]);
 
   if (!activeOrg) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-ds-surface2 border border-ds-border flex items-center justify-center mb-4">
-          <Building2 size={24} className="text-ds-muted" />
-        </div>
-        <p className="text-ds-text2 text-sm font-medium">No organization found</p>
-        <p className="text-ds-muted text-xs mt-1">You're not a member of any workspace yet.</p>
-      </div>
-    );
+    return <EmptyState icon={<Building2 size={24} className="text-ds-muted" />} title="No organization found" description="You're not a member of any workspace yet." />;
   }
 
   const plan = PLAN_STYLES[activeOrg.plan] ?? PLAN_STYLES.free;
@@ -128,17 +117,12 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
 
   return (
     <div className="space-y-6 animate-fade-in">
-
-      {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-ds-text">Organization</h1>
         <p className="text-ds-muted text-sm mt-1">Manage your workspace, members, and billing.</p>
       </div>
 
-      {/* Top row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-
-        {/* Org info card */}
         <div className="xl:col-span-2 card p-6">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl gradient-indigo flex items-center justify-center flex-shrink-0 shadow-accent-glow">
@@ -148,8 +132,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-xl font-bold text-ds-text">{activeOrg.name}</h2>
                 <span className={`badge ${plan.className}`}>
-                  <Sparkles size={10} className="mr-1" />
-                  {plan.label}
+                  <Sparkles size={10} className="mr-1" />{plan.label}
                 </span>
                 <span className={`badge ${activeOrg.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-ds-hover text-ds-muted'}`}>
                   {activeOrg.status === 'active' ? 'Active' : activeOrg.status}
@@ -161,33 +144,23 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
 
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="bg-ds-surface2 rounded-xl p-3.5 border border-ds-borderSoft">
-              <div className="flex items-center gap-1.5 text-ds-muted text-xs mb-2">
-                <Hash size={11} /> Org ID
-              </div>
+              <div className="flex items-center gap-1.5 text-ds-muted text-xs mb-2"><Hash size={11} /> Org ID</div>
               <p className="text-ds-text2 text-[11px] font-mono break-all leading-relaxed">{activeOrg.id}</p>
             </div>
             <div className="bg-ds-surface2 rounded-xl p-3.5 border border-ds-borderSoft">
-              <div className="flex items-center gap-1.5 text-ds-muted text-xs mb-2">
-                <Users size={11} /> Members
-              </div>
+              <div className="flex items-center gap-1.5 text-ds-muted text-xs mb-2"><Users size={11} /> Members</div>
               <p className="text-ds-text text-xl font-bold leading-tight">{members.length}</p>
-              {invitedCount > 0 && (
-                <p className="text-amber-400 text-xs mt-1">{invitedCount} pending</p>
-              )}
+              {invitedCount > 0 && <p className="text-amber-400 text-xs mt-1">{invitedCount} pending</p>}
             </div>
             <div className="bg-ds-surface2 rounded-xl p-3.5 border border-ds-borderSoft">
-              <div className="flex items-center gap-1.5 text-ds-muted text-xs mb-2">
-                <Calendar size={11} /> Created
-              </div>
+              <div className="flex items-center gap-1.5 text-ds-muted text-xs mb-2"><Calendar size={11} /> Created</div>
               <p className="text-ds-text2 text-xs font-medium">{formatDate(activeOrg.created_at)}</p>
             </div>
           </div>
         </div>
 
-        {/* Signed-in user card */}
         <div className="card p-6 flex flex-col">
           <p className="text-[10px] font-semibold text-ds-muted uppercase tracking-widest mb-4">Signed in as</p>
-
           <div className="flex items-center gap-3 mb-5">
             <Avatar name={user?.full_name} email={user?.email} size="lg" />
             <div className="min-w-0 flex-1">
@@ -203,20 +176,10 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                       placeholder="Your full name"
                       disabled={nameSaving}
                     />
-                    <button
-                      onClick={saveName}
-                      disabled={nameSaving}
-                      className="p-1.5 rounded-lg bg-ds-accent hover:bg-ds-accentHover disabled:opacity-50 transition text-white"
-                      title="Save"
-                    >
+                    <button onClick={saveName} disabled={nameSaving} className="p-1.5 rounded-lg bg-ds-accent hover:bg-ds-accentHover disabled:opacity-50 transition text-white">
                       {nameSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                     </button>
-                    <button
-                      onClick={cancelEditName}
-                      disabled={nameSaving}
-                      className="p-1.5 rounded-lg bg-ds-hover hover:bg-ds-border disabled:opacity-50 transition text-ds-text2"
-                      title="Cancel"
-                    >
+                    <button onClick={cancelEditName} disabled={nameSaving} className="p-1.5 rounded-lg bg-ds-hover hover:bg-ds-border disabled:opacity-50 transition text-ds-text2">
                       <X size={13} />
                     </button>
                   </div>
@@ -232,11 +195,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                     {user?.full_name ?? 'No name set'}
                   </p>
                   {canEdit && (
-                    <button
-                      onClick={startEditName}
-                      className="opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-ds-hover text-ds-muted hover:text-ds-text2"
-                      title="Edit name"
-                    >
+                    <button onClick={startEditName} className="opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-ds-hover text-ds-muted hover:text-ds-text2">
                       <Pencil size={12} />
                     </button>
                   )}
@@ -253,8 +212,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                 const R = ROLE_STYLES[activeOrg.role] ?? ROLE_STYLES.member;
                 return (
                   <span className={`badge ${R.className}`}>
-                    <R.icon size={11} className="mr-1" />
-                    {R.label}
+                    <R.icon size={11} className="mr-1" />{R.label}
                   </span>
                 );
               })()}
@@ -266,23 +224,19 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
             <div className="flex items-center justify-between">
               <span className="text-ds-muted text-xs">Status</span>
               <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                Active
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />Active
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Members table */}
       <div className="card overflow-hidden">
         <div className="px-6 py-4 border-b border-ds-borderSoft flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <Users size={15} className="text-ds-muted" />
             <h2 className="font-semibold text-ds-text text-sm">Members</h2>
-            <span className="px-2 py-0.5 bg-ds-hover text-ds-muted text-xs rounded-full font-medium">
-              {members.length}
-            </span>
+            <span className="px-2 py-0.5 bg-ds-hover text-ds-muted text-xs rounded-full font-medium">{members.length}</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 text-xs text-ds-muted">
@@ -297,8 +251,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
             </div>
             {canEdit && (
               <Button variant="primary" size="sm" onClick={() => onNavigate('members-add')}>
-                <UserPlus size={13} />
-                Add Member
+                <UserPlus size={13} /> Add Member
               </Button>
             )}
           </div>
@@ -310,38 +263,31 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
             <span className="text-sm">Loading members…</span>
           </div>
         )}
-
         {error && (
           <div className="flex items-center gap-2.5 mx-6 my-5 px-4 py-3 rounded-xl bg-red-500/10 text-red-400 text-sm border border-red-500/20">
-            <AlertCircle size={15} className="shrink-0" />
-            {error}
+            <AlertCircle size={15} className="shrink-0" />{error}
           </div>
         )}
-
         {!loading && !error && members.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Users size={28} className="text-ds-border mb-3" />
             <p className="text-ds-muted text-sm">No members yet.</p>
           </div>
         )}
-
         {!loading && !error && members.length > 0 && (
           <div>
-            {/* Table header */}
             <div className="hidden sm:grid grid-cols-12 px-6 py-3 text-[10px] font-semibold text-ds-muted uppercase tracking-widest border-b border-ds-borderSoft bg-ds-surface2/40">
               <div className="col-span-5">Member</div>
               <div className="col-span-3">Role</div>
               <div className="col-span-2">Status</div>
               <div className="col-span-2 text-right">Joined</div>
             </div>
-
             <div className="divide-y divide-ds-borderSoft">
               {members.map(member => {
                 const role = ROLE_STYLES[member.role] ?? ROLE_STYLES.member;
                 const RoleIcon = role.icon;
                 const status = STATUS_STYLES[member.status] ?? STATUS_STYLES.active;
                 const isMe = member.user_id === user?.id;
-
                 return (
                   <div
                     key={member.id}
@@ -349,18 +295,13 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                       isMe ? 'bg-ds-accent/5 hover:bg-ds-accent/8' : 'hover:bg-ds-hover/50'
                     }`}
                   >
-                    {/* Member info */}
                     <div className="col-span-12 sm:col-span-5 flex items-center gap-3 mb-2 sm:mb-0">
                       <Avatar name={member.user?.full_name} email={member.user?.email} size="sm" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-semibold text-ds-text truncate">
-                            {member.user?.full_name ?? 'Unnamed'}
-                          </p>
+                          <p className="text-sm font-semibold text-ds-text truncate">{member.user?.full_name ?? 'Unnamed'}</p>
                           {isMe && (
-                            <span className="text-[10px] bg-ds-accent/10 text-ds-accent px-1.5 py-0.5 rounded font-semibold leading-none">
-                              you
-                            </span>
+                            <span className="text-[10px] bg-ds-accent/10 text-ds-accent px-1.5 py-0.5 rounded font-semibold leading-none">you</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1 text-xs text-ds-muted mt-0.5">
@@ -369,28 +310,19 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                         </div>
                       </div>
                     </div>
-
-                    {/* Role */}
                     <div className="col-span-6 sm:col-span-3">
                       <span className={`badge ${role.className}`}>
-                        <RoleIcon size={11} className="mr-1" />
-                        {role.label}
+                        <RoleIcon size={11} className="mr-1" />{role.label}
                       </span>
                     </div>
-
-                    {/* Status */}
                     <div className="col-span-3 sm:col-span-2">
                       <span className={`flex items-center gap-1.5 text-xs font-medium ${status.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                        {status.label}
+                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />{status.label}
                       </span>
                     </div>
-
-                    {/* Joined */}
                     <div className="col-span-3 sm:col-span-2 text-right">
                       <div className="flex items-center justify-end gap-1 text-xs text-ds-muted">
-                        <Clock size={10} />
-                        {formatDate(member.created_at)}
+                        <Clock size={10} />{formatDate(member.created_at)}
                       </div>
                     </div>
                   </div>

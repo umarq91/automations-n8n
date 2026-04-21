@@ -1,7 +1,7 @@
-import AddItemForm from './AddItemForm';
-import EditItemForm from './EditItemForm';
-import ProductsList from './ProductsList';
-import type { ActiveSection } from '../Sidebar';
+import type { ActiveSection } from '../../components/layout/Sidebar';
+import ProductsList from './components/ProductsList';
+import AddItemForm from './components/AddItemForm';
+import EditItemForm from './components/EditItemForm';
 
 interface ProductsSectionProps {
   subSection: 'list' | 'add-item' | 'edit-item';

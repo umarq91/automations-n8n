@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LogOut, ChevronDown, Building2 } from "lucide-react";
-import Dashboard from "./components/Dashboard";
-import Sidebar, { type ActiveSection } from "./components/Sidebar";
+import Dashboard from "./Dashboard";
+import Sidebar, { type ActiveSection } from "./components/layout/Sidebar";
 import LoginPage from "./components/auth/LoginPage";
 import { useAuth } from "./contexts/AuthContext";
 import { canAccess, getDefaultSection } from "./lib/rbac";

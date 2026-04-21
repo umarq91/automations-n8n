@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, CreditCard, type LucideIcon } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { canAccess } from '../lib/rbac';
+import { useAuth } from '../../contexts/AuthContext';
+import { canAccess } from '../../lib/rbac';
 
 export type ActiveSection = 'overview' | 'email' | 'organization' | 'integrations' | 'ai-config' | 'products-list' | 'products-add-item' | 'products-edit-item' | 'members-add' | 'credits';
 
@@ -116,7 +116,6 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
 
       {/* Bottom */}
       <div className="px-4 py-4 border-t border-ds-borderSoft space-y-3">
-        {/* Org status pill */}
         {activeOrg && (
           activeOrg.is_under_maintenance ? (
             <div className="bg-amber-500/10 rounded-xl px-3.5 py-3 border border-amber-500/20">
@@ -151,7 +150,6 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
           )
         )}
 
-        {/* User */}
         <button
           onClick={() => canAccess(role, 'organization') && onNavigate('organization')}
           className={`flex items-center gap-3 w-full px-1 transition-opacity text-left ${canAccess(role, 'organization') ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}

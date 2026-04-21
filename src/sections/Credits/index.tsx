@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { CreditCard, Layers, MessageCircle, Sparkles, RefreshCw } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { getOrganizationCredits, getCreditUsageLogs } from '../lib/supabase/credits';
-import type { OrganizationCredits, CreditUsageLog, CreditType } from '../lib/supabase/types';
+import { useAuth } from '../../contexts/AuthContext';
+import { CreditModel } from '../../models/CreditModel';
+import type { OrganizationCredits, CreditUsageLog, CreditType } from '../../lib/supabase/types';
+import { formatDate, formatDateTime } from '../../lib/utils';
 
 const CREDIT_META: Record<CreditType, { label: string; icon: typeof Layers; gradient: string; iconColor: string }> = {
-  listing:      { label: 'Listing Credits',      icon: Layers,          gradient: 'gradient-indigo',  iconColor: 'text-ds-accent'   },
-  support:      { label: 'Support Credits',       icon: MessageCircle,   gradient: 'gradient-emerald', iconColor: 'text-emerald-400' },
-  optimization: { label: 'Optimization Credits',  icon: Sparkles,        gradient: 'gradient-violet',  iconColor: 'text-violet-400'  },
+  listing:      { label: 'Listing Credits',      icon: Layers,        gradient: 'gradient-indigo',  iconColor: 'text-ds-accent'   },
+  support:      { label: 'Support Credits',       icon: MessageCircle, gradient: 'gradient-emerald', iconColor: 'text-emerald-400' },
+  optimization: { label: 'Optimization Credits',  icon: Sparkles,      gradient: 'gradient-violet',  iconColor: 'text-violet-400'  },
 };
 
 function usageColor(pct: number) {
@@ -16,21 +17,7 @@ function usageColor(pct: number) {
   return { bar: 'bg-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-500/10' };
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-interface CreditCardProps {
-  type: CreditType;
-  used: number;
-  total: number;
-}
-
-function CreditStatCard({ type, used, total }: CreditCardProps) {
+function CreditStatCard({ type, used, total }: { type: CreditType; used: number; total: number }) {
   const meta = CREDIT_META[type];
   const Icon = meta.icon;
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
@@ -51,17 +38,13 @@ function CreditStatCard({ type, used, total }: CreditCardProps) {
           {pct}%
         </div>
       </div>
-
       <div>
         <div className="flex items-end justify-between mb-2">
           <span className="text-2xl font-bold text-ds-text">{remaining.toLocaleString()}</span>
           <span className="text-ds-muted text-xs">of {total.toLocaleString()} remaining</span>
         </div>
         <div className="w-full h-1.5 bg-ds-surface2 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${color.bar}`}
-            style={{ width: `${pct}%` }}
-          />
+          <div className={`h-full rounded-full transition-all duration-500 ${color.bar}`} style={{ width: `${pct}%` }} />
         </div>
         <p className="text-ds-muted text-xs mt-1.5">{used.toLocaleString()} used</p>
       </div>
@@ -80,23 +63,22 @@ export default function CreditsSection() {
     if (!activeOrg) return;
     setLoading(true);
     setError(null);
-    const c = await getOrganizationCredits(activeOrg.id);
+    const c = await CreditModel.get(activeOrg.id);
     if (!c) {
       setError('No credit record found for this organization.');
       setLoading(false);
       return;
     }
-    const l = await getCreditUsageLogs(activeOrg.id, c.period_start);
+    const l = await CreditModel.getLogs(activeOrg.id, c.period_start);
     setCredits(c);
     setLogs(l);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [activeOrg?.id]);
+  useEffect(() => { load(); }, [activeOrg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="p-8 max-w-5xl mx-auto animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center shadow-accent-glow">
@@ -111,11 +93,7 @@ export default function CreditsSection() {
             </p>
           </div>
         </div>
-        <button
-          onClick={load}
-          className="btn-ghost flex items-center gap-2 text-sm"
-          disabled={loading}
-        >
+        <button onClick={load} className="btn-ghost flex items-center gap-2 text-sm" disabled={loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
         </button>
@@ -136,14 +114,12 @@ export default function CreditsSection() {
 
       {credits && !loading && (
         <>
-          {/* Credit cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <CreditStatCard type="listing"      used={credits.listing_credits_used}      total={credits.listing_credits_total} />
             <CreditStatCard type="support"      used={credits.support_credits_used}      total={credits.support_credits_total} />
             <CreditStatCard type="optimization" used={credits.optimization_credits_used} total={credits.optimization_credits_total} />
           </div>
 
-          {/* Usage log */}
           <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-ds-borderSoft">
               <h2 className="text-ds-text text-sm font-semibold">Usage Log</h2>
@@ -165,12 +141,8 @@ export default function CreditsSection() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-ds-text text-sm font-medium">{meta.label}</p>
-                        {log.reference_id && (
-                          <p className="text-ds-muted text-xs truncate">ref: {log.reference_id}</p>
-                        )}
-                        {log.note && (
-                          <p className="text-ds-muted text-xs truncate">{log.note}</p>
-                        )}
+                        {log.reference_id && <p className="text-ds-muted text-xs truncate">ref: {log.reference_id}</p>}
+                        {log.note && <p className="text-ds-muted text-xs truncate">{log.note}</p>}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-red-400 text-sm font-semibold">−{log.amount}</p>

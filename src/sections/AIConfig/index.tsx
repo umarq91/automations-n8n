@@ -3,19 +3,13 @@ import {
   Bot, Plus, Trash2, Loader2, AlertCircle, CheckCircle2,
   Wand2, RotateCcw,
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { getAiConfig, upsertAiConfig } from '../lib/supabase/aiConfigs';
-import type { AiConfig } from '../lib/supabase/types';
-
-// ── Constants ─────────────────────────────────────────────────────────────────
+import { useAuth } from '../../contexts/AuthContext';
+import { AiConfigModel } from '../../models/AiConfigModel';
+import type { AiConfig } from '../../lib/supabase/types';
+import EmptyState from '../../components/shared/EmptyState';
 
 const TONE_OPTIONS = [
-  'Professional',
-  'Friendly',
-  'Formal',
-  'Casual',
-  'Empathetic',
-  'Direct',
+  'Professional', 'Friendly', 'Formal', 'Casual', 'Empathetic', 'Direct',
 ];
 
 const SAMPLE_PROMPT = `GOAL:
@@ -55,8 +49,6 @@ OUTPUT RULE:
 - No explanations.
 - No formatting.`;
 
-// ── Form state type ────────────────────────────────────────────────────────────
-
 interface FormState {
   general_prompt: string;
   tone: string;
@@ -79,8 +71,6 @@ function formsEqual(a: FormState, b: FormState): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
-
 export default function AIConfigSection() {
   const { activeOrg } = useAuth();
 
@@ -93,13 +83,11 @@ export default function AIConfigSection() {
 
   const isDirty = !formsEqual(form, saved);
 
-  // ── Load ───────────────────────────────────────────────────────────────────
-
   const load = useCallback(async (orgId: string) => {
     setLoading(true);
     setLoadError(null);
     try {
-      const config = await getAiConfig(orgId);
+      const config = await AiConfigModel.get(orgId);
       const formState = configToForm(config);
       setSaved(formState);
       setForm(formState);
@@ -115,45 +103,27 @@ export default function AIConfigSection() {
     load(activeOrg.id);
   }, [activeOrg?.id, load]);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setSaveResult(null);
     setForm(prev => ({ ...prev, [key]: value }));
   }
 
-  function fillSample() {
-    set('general_prompt', SAMPLE_PROMPT);
-  }
-
-  function resetForm() {
-    setForm(saved);
-    setSaveResult(null);
-  }
-
-  // Rules helpers
-  function addRule() {
-    set('rules', [...form.rules, '']);
-  }
-
+  function fillSample() { set('general_prompt', SAMPLE_PROMPT); }
+  function resetForm() { setForm(saved); setSaveResult(null); }
+  function addRule() { set('rules', [...form.rules, '']); }
   function updateRule(index: number, value: string) {
-    const next = [...form.rules];
-    next[index] = value;
-    set('rules', next);
+    const next = [...form.rules]; next[index] = value; set('rules', next);
   }
-
   function removeRule(index: number) {
     set('rules', form.rules.filter((_, i) => i !== index));
   }
-
-  // ── Save ───────────────────────────────────────────────────────────────────
 
   async function handleSave() {
     if (!activeOrg || !isDirty) return;
     setSaving(true);
     setSaveResult(null);
     try {
-      const saved = await upsertAiConfig({
+      const result = await AiConfigModel.upsert({
         organization_id: activeOrg.id,
         general_prompt: form.general_prompt || null,
         tone: form.tone || null,
@@ -161,7 +131,7 @@ export default function AIConfigSection() {
         vector_namespace: form.vector_namespace || null,
         vector_id: form.vector_id || null,
       });
-      const newForm = configToForm(saved);
+      const newForm = configToForm(result);
       setSaved(newForm);
       setForm(newForm);
       setSaveResult({ ok: true, message: 'Configuration saved successfully.' });
@@ -172,33 +142,17 @@ export default function AIConfigSection() {
     }
   }
 
-  // ── No org guard ───────────────────────────────────────────────────────────
-
   if (!activeOrg) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-ds-surface2 border border-ds-border flex items-center justify-center mb-4">
-          <Bot size={24} className="text-ds-muted" />
-        </div>
-        <p className="text-ds-text2 text-sm font-medium">No organization found</p>
-        <p className="text-ds-muted text-xs mt-1">Select an organization to configure AI settings.</p>
-      </div>
-    );
+    return <EmptyState icon={<Bot size={24} className="text-ds-muted" />} title="No organization found" description="Select an organization to configure AI settings." />;
   }
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
       <div className={`space-y-5 animate-fade-in ${isDirty ? 'pb-24' : ''}`}>
-
-        {/* Page header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-ds-text">AI Configuration</h1>
-            <p className="text-ds-muted text-sm mt-1">
-              Define how the AI behaves across your automation workflows.
-            </p>
+            <p className="text-ds-muted text-sm mt-1">Define how the AI behaves across your automation workflows.</p>
           </div>
           <div className="flex items-center gap-2 px-3.5 py-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl flex-shrink-0">
             <Bot size={13} className="text-ds-accent" />
@@ -206,7 +160,6 @@ export default function AIConfigSection() {
           </div>
         </div>
 
-        {/* Load error */}
         {loadError && (
           <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 text-red-400 text-sm border border-red-500/20">
             <AlertCircle size={15} className="shrink-0" />
@@ -214,7 +167,6 @@ export default function AIConfigSection() {
           </div>
         )}
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="flex items-center justify-center py-24 gap-2 text-ds-muted">
             <Loader2 size={18} className="animate-spin" />
@@ -224,28 +176,23 @@ export default function AIConfigSection() {
 
         {!loading && !loadError && (
           <>
-            {/* ── General Prompt ─────────────────────────────────────────── */}
             <div className="card p-6">
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <h2 className="text-sm font-semibold text-ds-text">General Prompt</h2>
                   <p className="text-ds-muted text-xs mt-0.5">
-                    Core instructions, context, and rules the AI follows when generating responses. Think of this as the system prompt for your automations.
+                    Core instructions, context, and rules the AI follows when generating responses.
                   </p>
                 </div>
-                <button
-                  onClick={fillSample}
-                  className="btn-secondary flex-shrink-0 text-xs gap-1.5"
-                >
-                  <Wand2 size={13} />
-                  Fill sample
+                <button onClick={fillSample} className="btn-secondary flex-shrink-0 text-xs gap-1.5">
+                  <Wand2 size={13} /> Fill sample
                 </button>
               </div>
               <textarea
                 value={form.general_prompt}
                 onChange={e => set('general_prompt', e.target.value)}
                 rows={10}
-                placeholder="E.g. You are a customer support assistant for an e-commerce brand. Always address customers by first name, reference their order details, and end every message with a clear next step…"
+                placeholder="E.g. You are a customer support assistant for an e-commerce brand…"
                 className="input w-full resize-none font-mono text-xs leading-relaxed"
               />
               <p className="text-ds-muted text-[11px] mt-2">
@@ -255,55 +202,47 @@ export default function AIConfigSection() {
               </p>
             </div>
 
-            {/* ── Tone ───────────────────────────────────────────────────── */}
             <div className="card p-6">
-                <h2 className="text-sm font-semibold text-ds-text mb-0.5">Response Tone</h2>
-                <p className="text-ds-muted text-xs mb-4">How the AI should communicate with customers.</p>
-                <div className="flex flex-wrap gap-2">
-                  {TONE_OPTIONS.map(tone => (
-                    <button
-                      key={tone}
-                      onClick={() => set('tone', tone)}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-                        form.tone === tone
-                          ? 'bg-ds-accent/15 text-ds-accent border-ds-accent/40'
-                          : 'bg-ds-surface2 text-ds-text2 border-ds-borderSoft hover:border-ds-border hover:text-ds-text'
-                      }`}
-                    >
-                      {tone}
-                    </button>
-                  ))}
-                </div>
-                {/* Custom tone input */}
-                <div className="mt-4">
-                  <label className="label">Custom tone</label>
-                  <input
-                    className="input"
-                    placeholder="E.g. Witty and concise"
-                    value={TONE_OPTIONS.includes(form.tone) ? '' : form.tone}
-                    onChange={e => set('tone', e.target.value)}
-                    onFocus={() => {
-                      if (TONE_OPTIONS.includes(form.tone)) set('tone', '');
-                    }}
-                  />
-                  <p className="text-ds-muted text-[11px] mt-1.5">
-                    Type a custom tone or use a preset above.
-                  </p>
-                </div>
+              <h2 className="text-sm font-semibold text-ds-text mb-0.5">Response Tone</h2>
+              <p className="text-ds-muted text-xs mb-4">How the AI should communicate with customers.</p>
+              <div className="flex flex-wrap gap-2">
+                {TONE_OPTIONS.map(tone => (
+                  <button
+                    key={tone}
+                    onClick={() => set('tone', tone)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                      form.tone === tone
+                        ? 'bg-ds-accent/15 text-ds-accent border-ds-accent/40'
+                        : 'bg-ds-surface2 text-ds-text2 border-ds-borderSoft hover:border-ds-border hover:text-ds-text'
+                    }`}
+                  >
+                    {tone}
+                  </button>
+                ))}
               </div>
+              <div className="mt-4">
+                <label className="label">Custom tone</label>
+                <input
+                  className="input"
+                  placeholder="E.g. Witty and concise"
+                  value={TONE_OPTIONS.includes(form.tone) ? '' : form.tone}
+                  onChange={e => set('tone', e.target.value)}
+                  onFocus={() => { if (TONE_OPTIONS.includes(form.tone)) set('tone', ''); }}
+                />
+                <p className="text-ds-muted text-[11px] mt-1.5">Type a custom tone or use a preset above.</p>
+              </div>
+            </div>
 
-            {/* ── Rules ──────────────────────────────────────────────────── */}
             <div className="card p-6">
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
                   <h2 className="text-sm font-semibold text-ds-text">Rules</h2>
                   <p className="text-ds-muted text-xs mt-0.5">
-                    Individual constraints, FAQs, policies, or hard instructions the AI must always follow. Each rule is injected separately into the workflow context.
+                    Individual constraints, FAQs, policies, or hard instructions the AI must always follow.
                   </p>
                 </div>
                 <button onClick={addRule} className="btn-secondary flex-shrink-0 text-xs gap-1.5">
-                  <Plus size={13} />
-                  Add rule
+                  <Plus size={13} /> Add rule
                 </button>
               </div>
 
@@ -317,8 +256,7 @@ export default function AIConfigSection() {
                     <p className="text-ds-muted text-xs mt-0.5">Add rules like policies, FAQs, or hard constraints.</p>
                   </div>
                   <button onClick={addRule} className="btn-primary text-xs gap-1.5">
-                    <Plus size={13} />
-                    Add first rule
+                    <Plus size={13} /> Add first rule
                   </button>
                 </div>
               ) : (
@@ -342,7 +280,6 @@ export default function AIConfigSection() {
                       <button
                         onClick={() => removeRule(i)}
                         className="p-1.5 rounded-lg text-ds-muted hover:text-red-400 hover:bg-red-500/10 transition flex-shrink-0"
-                        title="Remove rule"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -352,26 +289,19 @@ export default function AIConfigSection() {
                     onClick={addRule}
                     className="flex items-center gap-1.5 text-xs text-ds-muted hover:text-ds-text2 transition mt-1 px-1"
                   >
-                    <Plus size={12} />
-                    Add another rule
+                    <Plus size={12} /> Add another rule
                   </button>
                 </div>
               )}
             </div>
 
-            {/* ── Save result banner ─────────────────────────────────────── */}
             {saveResult && (
-              <div
-                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm border ${
-                  saveResult.ok
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    : 'bg-red-500/10 text-red-400 border-red-500/20'
-                }`}
-              >
-                {saveResult.ok
-                  ? <CheckCircle2 size={15} className="shrink-0" />
-                  : <AlertCircle size={15} className="shrink-0" />
-                }
+              <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm border ${
+                saveResult.ok
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : 'bg-red-500/10 text-red-400 border-red-500/20'
+              }`}>
+                {saveResult.ok ? <CheckCircle2 size={15} className="shrink-0" /> : <AlertCircle size={15} className="shrink-0" />}
                 {saveResult.message}
               </div>
             )}
@@ -379,7 +309,6 @@ export default function AIConfigSection() {
         )}
       </div>
 
-      {/* ── Sticky save bar ─────────────────────────────────────────────────── */}
       {isDirty && (
         <div className="fixed bottom-0 left-60 right-0 z-50 border-t border-ds-border bg-ds-surface/95 backdrop-blur-md">
           <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
@@ -388,23 +317,11 @@ export default function AIConfigSection() {
               Unsaved changes
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={resetForm}
-                disabled={saving}
-                className="btn-secondary gap-1.5 disabled:opacity-50"
-              >
-                <RotateCcw size={13} />
-                Reset
+              <button onClick={resetForm} disabled={saving} className="btn-secondary gap-1.5 disabled:opacity-50">
+                <RotateCcw size={13} /> Reset
               </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="btn-primary gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {saving
-                  ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
-                  : 'Save changes'
-                }
+              <button onClick={handleSave} disabled={saving} className="btn-primary gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed">
+                {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save changes'}
               </button>
             </div>
           </div>

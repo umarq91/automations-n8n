@@ -1,5 +1,5 @@
 import { TrendingUp, Mail, ShoppingCart, ArrowUpRight, Activity, Clock, CheckCircle, AlertTriangle, Package, RefreshCw, Users } from 'lucide-react';
-import type { ActiveSection } from './Sidebar';
+import type { ActiveSection } from '../../components/layout/Sidebar';
 
 interface OverviewSectionProps {
   onNavigate: (section: ActiveSection) => void;
@@ -63,13 +63,11 @@ const emailStats = [
 export default function OverviewSection({ onNavigate }: OverviewSectionProps) {
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-ds-text">Dashboard Overview</h1>
         <p className="text-ds-muted text-sm mt-1">April 15, 2026 — All systems operational</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -94,9 +92,7 @@ export default function OverviewSection({ onNavigate }: OverviewSectionProps) {
         })}
       </div>
 
-      {/* Main content row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Recent Activity */}
         <div className="xl:col-span-2 card overflow-hidden">
           <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -127,7 +123,6 @@ export default function OverviewSection({ onNavigate }: OverviewSectionProps) {
           </div>
         </div>
 
-        {/* Email Campaigns */}
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -164,7 +159,6 @@ export default function OverviewSection({ onNavigate }: OverviewSectionProps) {
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div className="card p-5">
         <h2 className="font-semibold text-ds-text2 text-xs uppercase tracking-widest mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

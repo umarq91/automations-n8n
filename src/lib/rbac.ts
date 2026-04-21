@@ -1,4 +1,4 @@
-import type { ActiveSection } from '../components/Sidebar';
+import type { ActiveSection } from '../components/layout/Sidebar';
 import type { MemberRole } from './supabase/types';
 
 // ─── Permission table ────────────────────────────────────────────────────────
