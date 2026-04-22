@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Package, PackagePlus, Tag, Ruler, Layers, DollarSign,
   ExternalLink, Trash2, Loader2, Pencil, ShoppingBag,
-  RefreshCw, AlertTriangle, Plug, Zap, X, Check,
+  RefreshCw, AlertTriangle, Plug, Zap, X, Check, Boxes,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
@@ -80,6 +80,12 @@ function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete
                 <DollarSign size={10} className="text-ds-muted" />
                 {product.purchase_price.toFixed(2)}
                 {product.discount ? <span className="text-amber-400 ml-0.5">−{product.discount}%</span> : null}
+              </span>
+            )}
+            {product.stock_quantity != null && (
+              <span className="flex items-center gap-1 text-xs text-ds-text2 bg-ds-surface2 border border-ds-borderSoft px-2 py-0.5 rounded-md">
+                <Boxes size={10} className="text-ds-muted" />
+                {product.stock_quantity} in stock
               </span>
             )}
           </div>

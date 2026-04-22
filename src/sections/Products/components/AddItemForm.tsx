@@ -32,6 +32,7 @@ interface AddItemFormData {
   gender: string;
   status: string;
   discount: string;
+  stock_quantity: string;
   to_optimize: boolean;
 }
 
@@ -40,7 +41,7 @@ const emptyForm: AddItemFormData = {
   photo: null, photoPreview: null, colors: [], sizes: [],
   material: '', purchase_price: '', base_currency: 'USD', converted_currency: '',
   supplier_link: '', note: '', season: '', gender: '', status: 'NOT_IMPORTED',
-  discount: '', to_optimize: false,
+  discount: '', stock_quantity: '100', to_optimize: false,
 };
 
 const selectClass =
@@ -120,6 +121,7 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         supplier_link: form.supplier_link.trim() || null,
         note: form.note.trim() || null,
         season: form.season || null, gender: form.gender || null,
+        stock_quantity: form.stock_quantity ? parseInt(form.stock_quantity, 10) : 100,
         shopify_product_url: null, shopify_admin_url: null,
         to_optimize: form.to_optimize,
       });
@@ -274,6 +276,10 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
                 <Input id="item-discount" type="number" min="0" max="100" placeholder="0" className="pr-8" value={form.discount} onChange={(e) => set('discount', e.target.value)} />
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ds-muted text-sm">%</span>
               </div>
+            </div>
+            <div>
+              <Label htmlFor="item-stock-quantity">Stock Quantity</Label>
+              <Input id="item-stock-quantity" type="number" min="0" step="1" placeholder="100" value={form.stock_quantity} onChange={(e) => set('stock_quantity', e.target.value)} />
             </div>
           </div>
         </section>

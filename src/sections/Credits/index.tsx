@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CreditCard, Layers, MessageCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { CreditModel } from '../../models/CreditModel';
-import type { OrganizationCredits, CreditUsageLog, CreditType } from '../../lib/supabase/types';
+import type { OrganizationCredits, CreditUsageLogWithProduct, CreditType } from '../../lib/supabase/types';
 import { formatDate, formatDateTime } from '../../lib/utils';
 
 const CREDIT_META: Record<CreditType, { label: string; icon: typeof Layers; gradient: string; iconColor: string }> = {
@@ -55,7 +55,7 @@ function CreditStatCard({ type, used, total }: { type: CreditType; used: number;
 export default function CreditsSection() {
   const { activeOrg } = useAuth();
   const [credits, setCredits] = useState<OrganizationCredits | null>(null);
-  const [logs, setLogs] = useState<CreditUsageLog[]>([]);
+  const [logs, setLogs] = useState<CreditUsageLogWithProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,6 +134,8 @@ export default function CreditsSection() {
                 {logs.map((log) => {
                   const meta = CREDIT_META[log.credit_type];
                   const Icon = meta.icon;
+                  const productTitle = log.product?.title ?? null;
+                  const adminUrl = log.product?.shopify_admin_url ?? log.product_admin_url ?? null;
                   return (
                     <div key={log.id} className="px-5 py-3 flex items-center gap-4 hover:bg-ds-hover transition-colors">
                       <div className={`w-7 h-7 rounded-lg ${meta.gradient} flex items-center justify-center flex-shrink-0`}>
@@ -141,8 +143,15 @@ export default function CreditsSection() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-ds-text text-sm font-medium">{meta.label}</p>
-                        {log.reference_id && <p className="text-ds-muted text-xs truncate">ref: {log.reference_id}</p>}
+                        {productTitle && <p className="text-ds-text2 text-xs truncate font-medium">{productTitle}</p>}
                         {log.note && <p className="text-ds-muted text-xs truncate">{log.note}</p>}
+                        {adminUrl ? (
+                          <a href={adminUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-ds-accent hover:text-ds-accentHover truncate block transition-colors">
+                            View in Shopify Admin ↗
+                          </a>
+                        ) : (
+                          <p className="text-ds-muted text-xs italic">No admin URL</p>
+                        )}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-red-400 text-sm font-semibold">−{log.amount}</p>

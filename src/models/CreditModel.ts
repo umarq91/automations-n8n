@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase/client';
-import type { OrganizationCredits, CreditUsageLog } from '../lib/supabase/types';
+import type { OrganizationCredits, CreditUsageLogWithProduct } from '../lib/supabase/types';
 
 const PLAN_DEFAULTS: Record<string, { listing: number; support: number; optimization: number }> = {
   free:       { listing: 100,  support: 50,   optimization: 30  },
@@ -18,17 +18,17 @@ export class CreditModel {
     return data as OrganizationCredits;
   }
 
-  static async getLogs(orgId: string, since?: string): Promise<CreditUsageLog[]> {
+  static async getLogs(orgId: string, since?: string): Promise<CreditUsageLogWithProduct[]> {
     let query = supabase
       .from('credit_usage_logs')
-      .select('*')
+      .select('*, product:products(id, title, shopify_admin_url, shopify_product_url, photo_url)')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
       .limit(50);
     if (since) query = query.gte('created_at', since);
     const { data, error } = await query;
     if (error) return [];
-    return data as CreditUsageLog[];
+    return data as CreditUsageLogWithProduct[];
   }
 
   static async init(orgId: string, plan: string): Promise<void> {

@@ -113,6 +113,7 @@ export interface Product {
   note: string | null;
   season: string | null;
   gender: string | null;
+  stock_quantity: number | null;
   shopify_product_url: string | null;
   shopify_admin_url: string | null;
   to_optimize: boolean;
@@ -151,7 +152,13 @@ export interface CreditUsageLog {
   amount: number;
   reference_id: string | null;
   note: string | null;
+  product_id: string | null;
+  product_admin_url: string | null;
   created_at: string;
+}
+
+export interface CreditUsageLogWithProduct extends CreditUsageLog {
+  product: Pick<Product, 'id' | 'title' | 'shopify_admin_url' | 'shopify_product_url' | 'photo_url'> | null;
 }
 
 export interface ShopifyProductImage {

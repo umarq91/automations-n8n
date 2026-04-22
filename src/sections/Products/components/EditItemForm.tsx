@@ -33,6 +33,7 @@ interface EditFormData {
   gender: string;
   status: string;
   discount: string;
+  stock_quantity: string;
   to_optimize: boolean;
 }
 
@@ -61,7 +62,9 @@ function productToFormData(p: Product): EditFormData {
     converted_currency: currency.converted_currency === currency.base_currency ? '' : currency.converted_currency,
     supplier_link: p.supplier_link ?? '', note: p.note ?? '',
     season: p.season ?? '', gender: p.gender ?? '', status: p.status,
-    discount: p.discount != null ? String(p.discount) : '', to_optimize: p.to_optimize,
+    discount: p.discount != null ? String(p.discount) : '',
+    stock_quantity: p.stock_quantity != null ? String(p.stock_quantity) : '100',
+    to_optimize: p.to_optimize,
   };
 }
 
@@ -141,6 +144,7 @@ export default function EditItemForm({ productId, onNavigate }: EditItemFormProp
         supplier_link: form.supplier_link.trim() || null,
         note: form.note.trim() || null,
         season: form.season || null, gender: form.gender || null,
+        stock_quantity: form.stock_quantity ? parseInt(form.stock_quantity, 10) : 100,
         to_optimize: form.to_optimize,
       });
 
@@ -315,6 +319,10 @@ export default function EditItemForm({ productId, onNavigate }: EditItemFormProp
                 <Input id="edit-discount" type="number" min="0" max="100" placeholder="0" className="pr-8" value={form.discount} onChange={(e) => set('discount', e.target.value)} />
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ds-muted text-sm">%</span>
               </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-stock-quantity">Stock Quantity</Label>
+              <Input id="edit-stock-quantity" type="number" min="0" step="1" placeholder="100" value={form.stock_quantity} onChange={(e) => set('stock_quantity', e.target.value)} />
             </div>
           </div>
         </section>
