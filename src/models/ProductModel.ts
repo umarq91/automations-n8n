@@ -80,10 +80,10 @@ export class ProductModel {
     toOptimize: boolean,
     optimizedAt: string | null = null
   ): Promise<void> {
-    const { error } = await supabase
-      .from('products')
-      .update({ to_optimize: toOptimize, optimized_at: optimizedAt })
-      .eq('id', id);
+    const patch: Record<string, unknown> = { to_optimize: toOptimize, optimized_at: optimizedAt };
+    if (toOptimize) patch.status = 'NOT_OPTIMIZED';
+    else if (optimizedAt) patch.status = 'OPTIMIZED';
+    const { error } = await supabase.from('products').update(patch).eq('id', id);
     if (error) throw error;
   }
 

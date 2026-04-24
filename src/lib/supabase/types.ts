@@ -87,7 +87,7 @@ export interface Integration {
   updated_at: string;
 }
 
-export type ProductStatus = 'NOT_IMPORTED' | 'READY_TO_IMPORT' | 'ALREADY_IMPORTED' | 'IMPORTING';
+export type ProductStatus = 'NOT_IMPORTED' | 'READY_TO_IMPORT' | 'ALREADY_IMPORTED' | 'IMPORTING' | 'IMPORTED' | 'NOT_OPTIMIZED' | 'OPTIMIZED';
 
 export interface ProductCurrency {
   base_currency: string;

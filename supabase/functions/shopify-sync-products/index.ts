@@ -105,7 +105,7 @@ interface MappedProduct {
   photo_url: string | null;
   shopify_product_url: string | null;
   shopify_admin_url: string | null;
-  status: 'NOT_IMPORTED';
+  status: 'IMPORTED';
   colors: string[];
   sizes: string[];
   to_optimize: boolean;
@@ -169,7 +169,7 @@ function mapProduct(
     photo_url: firstImage,
     shopify_product_url: `https://${shopDomain}/products/${p.handle}`,
     shopify_admin_url: `https://admin.shopify.com/store/${shopDomain.replace(/\.myshopify\.com$/, '')}/products/${p.id}`,
-    status: 'NOT_IMPORTED',
+    status: 'IMPORTED',
     colors: [],
     sizes: [],
     to_optimize: false,
@@ -297,16 +297,24 @@ serve(async (req) => {
       if (insertErr) return respond({ ok: false, message: `Failed to insert products: ${insertErr.message}` }, 500);
     }
 
-    // Update existing — never touch to_optimize or optimized_at
+    // Update existing — only Shopify-sourced fields; never touch status, to_optimize, optimized_at, colors, sizes
     for (let i = 0; i < updateRows.length; i += UPDATE_BATCH) {
       const batch = updateRows.slice(i, i + UPDATE_BATCH);
       const results = await Promise.all(
-        batch.map(({ to_optimize: _to, ...fields }) =>
+        batch.map((row) =>
           supabase
             .from('products')
-            .update(fields)
+            .update({
+              title: row.title,
+              shopify_status: row.shopify_status,
+              photo_url: row.photo_url,
+              shopify_product_url: row.shopify_product_url,
+              shopify_admin_url: row.shopify_admin_url,
+              metadata: row.metadata,
+              updated_at: row.updated_at,
+            })
             .eq('organization_id', org_id)
-            .eq('shopify_id', fields.shopify_id)
+            .eq('shopify_id', row.shopify_id)
         ),
       );
       const failed = results.find((r) => r.error);

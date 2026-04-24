@@ -121,10 +121,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function ShopifyProductCard({ product }: { product: Product }) {
   const [showAllVariants, setShowAllVariants] = useState(false);
-  const [toOptimize, setToOptimize] = useState(product.to_optimize);
+  const [toOptimize, setToOptimize] = useState(product.to_optimize && product.status !== 'OPTIMIZED');
   const [optimizedAt, setOptimizedAt] = useState(product.optimized_at ?? null);
   const [optimizing, setOptimizing] = useState(false);
   const meta = getMeta(product);
+  const isOptimized = Boolean(optimizedAt) || product.status === 'OPTIMIZED';
 
   async function handleOptimizeToggle() {
     const next = !toOptimize;
@@ -249,12 +250,12 @@ export default function ShopifyProductCard({ product }: { product: Product }) {
             className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${
               toOptimize
                 ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
-                : optimizedAt
+                : isOptimized
                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
                   : 'border-ds-border text-ds-muted bg-transparent hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent'
             }`}>
-            {optimizing ? <Loader2 size={11} className="animate-spin" /> : toOptimize ? <X size={11} /> : optimizedAt ? <Check size={11} /> : <Zap size={11} />}
-            {toOptimize ? 'Queued' : optimizedAt ? 'Optimized' : 'Optimize'}
+            {optimizing ? <Loader2 size={11} className="animate-spin" /> : toOptimize ? <X size={11} /> : isOptimized ? <Check size={11} /> : <Zap size={11} />}
+            {toOptimize ? 'Queued' : isOptimized ? 'Optimized' : 'Optimize'}
           </button>
           <a href={product.shopify_product_url ?? '#'} target="_blank" rel="noopener noreferrer" aria-disabled={!product.shopify_product_url}
             className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 transition-colors ${product.shopify_product_url ? 'hover:bg-emerald-500/10' : 'opacity-40 pointer-events-none'}`}>
