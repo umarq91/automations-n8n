@@ -12,6 +12,7 @@ import type { ProductCurrency, ProductStatus } from '../../../lib/supabase/types
 import type { ActiveSection } from '../../../components/layout/Sidebar';
 import { currencyOptions } from '../../../lib/constants';
 import TagInput from '../../../components/shared/TagInput';
+import { productSchema, type FieldErrors } from '../../../lib/productValidation';
 
 interface AddItemFormData {
   title: string;
@@ -58,8 +59,9 @@ interface AddItemFormProps {
 export default function AddItemForm({ onNavigate }: AddItemFormProps) {
   const { activeOrg, user } = useAuth();
   const [form,      setForm]      = useState<AddItemFormData>(emptyForm);
-  const [saveState, setSaveState] = useState<SaveState>('idle');
-  const [errorMsg,  setErrorMsg]  = useState('');
+  const [saveState,    setSaveState]    = useState<SaveState>('idle');
+  const [errorMsg,     setErrorMsg]     = useState('');
+  const [fieldErrors,  setFieldErrors]  = useState<FieldErrors>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function set<K extends keyof AddItemFormData>(field: K, value: AddItemFormData[K]) {
@@ -92,13 +94,30 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
     setForm(emptyForm);
     setSaveState('idle');
     setErrorMsg('');
+    setFieldErrors({});
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!activeOrg || !user) return;
-    if (!form.title.trim()) { setErrorMsg('Title is required.'); setSaveState('error'); return; }
 
+    const parsed = productSchema.safeParse({
+      title: form.title.trim(),
+      purchase_price: form.purchase_price.trim(),
+      competitor_link: form.competitor_link.trim(),
+    });
+
+    if (!parsed.success) {
+      const errs: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0] as keyof FieldErrors;
+        if (!errs[field]) errs[field] = issue.message;
+      }
+      setFieldErrors(errs);
+      return;
+    }
+
+    setFieldErrors({});
     setSaveState('saving');
     setErrorMsg('');
 
@@ -159,7 +178,8 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             <div className="sm:col-span-2 lg:col-span-3">
               <Label htmlFor="item-title">Title <span className="text-red-400">*</span></Label>
-              <Input id="item-title" placeholder="Product title" value={form.title} onChange={(e) => set('title', e.target.value)} />
+              <Input id="item-title" placeholder="Product title" value={form.title} onChange={(e) => { set('title', e.target.value); if (fieldErrors.title) setFieldErrors((p) => ({ ...p, title: undefined })); }} className={fieldErrors.title ? 'border-red-500 focus:border-red-500' : ''} />
+              {fieldErrors.title && <p className="text-red-400 text-xs mt-1">{fieldErrors.title}</p>}
               <div className="flex items-center justify-between mt-3 px-3.5 py-2.5 bg-ds-surface2 border border-ds-border rounded-xl">
                 <div>
                   <p className="text-ds-text2 text-xs font-medium">Use competitor's title</p>
@@ -247,11 +267,12 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
           <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">Pricing</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             <div>
-              <Label htmlFor="item-purchase-price">Purchase Price</Label>
+              <Label htmlFor="item-purchase-price">Purchase Price <span className="text-red-400">*</span></Label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ds-muted text-sm">$</span>
-                <Input id="item-purchase-price" type="number" min="0" step="0.01" placeholder="0.00" className="pl-7" value={form.purchase_price} onChange={(e) => set('purchase_price', e.target.value)} />
+                <Input id="item-purchase-price" type="number" min="0" step="0.01" placeholder="0.00" className={`pl-7${fieldErrors.purchase_price ? ' border-red-500 focus:border-red-500' : ''}`} value={form.purchase_price} onChange={(e) => { set('purchase_price', e.target.value); if (fieldErrors.purchase_price) setFieldErrors((p) => ({ ...p, purchase_price: undefined })); }} />
               </div>
+              {fieldErrors.purchase_price && <p className="text-red-400 text-xs mt-1">{fieldErrors.purchase_price}</p>}
             </div>
             <div>
               <Label htmlFor="item-base-currency">Base Currency</Label>
@@ -288,8 +309,9 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
           <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">Links</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <Label htmlFor="item-competitor-link">Competitor Link</Label>
-              <Input id="item-competitor-link" type="url" placeholder="https://" value={form.competitor_link} onChange={(e) => set('competitor_link', e.target.value)} />
+              <Label htmlFor="item-competitor-link">Competitor Link <span className="text-red-400">*</span></Label>
+              <Input id="item-competitor-link" type="url" placeholder="https://" value={form.competitor_link} onChange={(e) => { set('competitor_link', e.target.value); if (fieldErrors.competitor_link) setFieldErrors((p) => ({ ...p, competitor_link: undefined })); }} className={fieldErrors.competitor_link ? 'border-red-500 focus:border-red-500' : ''} />
+              {fieldErrors.competitor_link && <p className="text-red-400 text-xs mt-1">{fieldErrors.competitor_link}</p>}
             </div>
             <div>
               <Label htmlFor="item-supplier-link">Supplier Link</Label>

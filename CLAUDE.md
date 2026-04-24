@@ -41,6 +41,7 @@ src/
 │   │   ├── client.ts    # Singleton Supabase client
 │   │   └── types.ts     # All shared TypeScript interfaces
 │   ├── utils.ts         # General helpers (formatting, dates, strings, etc.)
+│   ├── [domain]Validation.ts  # Zod schemas + FieldErrors types for each domain
 │   └── [domain].ts      # Domain-specific helpers (e.g., permissions.ts)
 │
 ├── models/              # All Supabase queries — class-based, grouped by domain
@@ -75,6 +76,7 @@ src/
 - **Section sub-components** live in `sections/[Name]/components/` and are never imported outside that section.
 - **Shared components** in `components/shared/` must have zero section-specific logic.
 - **`lib/`** is for pure functions only — no hooks, no JSX, no Supabase calls.
+- **Zod validation schemas** live in `src/lib/[domain]Validation.ts` — one file per domain (e.g. `productValidation.ts`). Export the schema and the `FieldErrors` type together. Never define schemas inline inside components or forms.
 - **`models/`** is for all Supabase interactions — never call Supabase directly inside components or hooks.
 - **`constants/`** holds every magic string, number, or enum used in more than one place. Never inline them.
 
