@@ -209,6 +209,22 @@ export interface ShopifyProductMeta {
   synced_at: string | null;
 }
 
+export interface WorkflowLog {
+  id: string;
+  organization_id: string | null;
+  workflow_id: string | null;
+  workflow_name: string | null;
+  execution_id: string | null;
+  execution_url: string | null;
+  type: 'error' | 'success' | string | null;
+  error_description: string | null;
+  last_node_executed: string | null;
+  error_message: string | null;
+  product_id: string | null;
+  product_title: string | null;
+  created_at: string;
+}
+
 export interface AiConfig {
   id: string;
   organization_id: string;

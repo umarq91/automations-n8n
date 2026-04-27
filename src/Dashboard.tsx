@@ -5,6 +5,7 @@ import AIConfigSection from './sections/AIConfig';
 import ProductsSection from './sections/Products';
 import MembersSection from './sections/Members';
 import CreditsSection from './sections/Credits';
+import LogsSection from './sections/Logs';
 import type { ActiveSection } from './components/layout/Sidebar';
 import { useAuth } from './contexts/AuthContext';
 import { canAccess } from './lib/rbac';
@@ -48,6 +49,7 @@ function Dashboard({ activeSection, editingProductId, onNavigate }: DashboardPro
         </div>
       )}
       {activeSection === 'credits' && <CreditsSection />}
+      {activeSection === 'logs'    && <LogsSection />}
     </div>
   );
 }
