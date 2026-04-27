@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Package, PackagePlus, Tag, Ruler, Layers, DollarSign,
   ExternalLink, Trash2, Loader2, Pencil, ShoppingBag,
-  RefreshCw, AlertTriangle, Plug, Boxes,
+  RefreshCw, AlertTriangle, Plug, Boxes, FileUp,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
@@ -11,6 +11,7 @@ import { PRODUCT_STATUS_LABEL, PRODUCT_STATUS_CLASS } from '../../../constants/p
 import { Button } from '../../../components/ui/button';
 import { formatRelative } from '../../../lib/utils';
 import ShopifyProductCard from './ShopifyProductCard';
+import CsvImportModal from './CsvImportModal';
 import type { ActiveSection } from '../../../components/layout/Sidebar';
 
 type TabId = 'listed' | 'shopify';
@@ -137,6 +138,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState<string | null>(null);
 
+  const [csvModalOpen,    setCsvModalOpen]    = useState(false);
+
   const [shopifyProducts, setShopifyProducts] = useState<Product[]>([]);
   const [connection,      setConnection]      = useState<ShopifyConnection | null>(null);
   const [shopifyLoading,  setShopifyLoading]  = useState(true);
@@ -199,9 +202,14 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
           </div>
         </div>
         {activeTab === 'listed' ? (
-          <Button variant="primary" size="default" onClick={() => onNavigate('products-add-item')}>
-            <PackagePlus size={14} />Add Item
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="default" onClick={() => setCsvModalOpen(true)}>
+              <FileUp size={14} />Import CSV
+            </Button>
+            <Button variant="primary" size="default" onClick={() => onNavigate('products-add-item')}>
+              <PackagePlus size={14} />Add Item
+            </Button>
+          </div>
         ) : (
           <Button variant="primary" size="default" onClick={handleResync} disabled={syncing || !connection?.connected}>
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
@@ -236,6 +244,16 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
           )}
         </>
       )}
+
+      <CsvImportModal
+        open={csvModalOpen}
+        onClose={() => setCsvModalOpen(false)}
+        onImported={() => {
+          setCsvModalOpen(false);
+          if (!activeOrg) return;
+          ProductModel.getAll(activeOrg.id).then(setProducts).catch(() => null);
+        }}
+      />
 
       {activeTab === 'shopify' && (
         <>

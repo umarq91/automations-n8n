@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Toaster } from "sonner";
 import { LogOut, ChevronDown, Building2 } from "lucide-react";
 import Dashboard from "./Dashboard";
 import Sidebar, { type ActiveSection } from "./components/layout/Sidebar";
@@ -202,6 +203,13 @@ function App() {
           onClick={() => setOrgMenuOpen(false)}
         />
       )}
+
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: { background: '#111823', border: '1px solid #263244', color: '#E6EDF3' },
+        }}
+      />
     </div>
   );
 }

@@ -1,0 +1,10 @@
+title,purchase_price,competitor_link,status,date,material,colors,sizes,gender,season,supplier_link,note,discount,stock_quantity
+Blue Denim Jacket,25.99,https://www.zara.com/us/en/denim-jacket-p12345.html,NOT_IMPORTED,2024-01-15,100% Cotton,Blue|Navy,S|M|L|XL,men,fall,https://www.alibaba.com/product/denim-jacket-456,This row is valid,10,150
+,18.50,https://www.hm.com/us/floral-summer-dress-67890,READY_TO_IMPORT,2024-02-20,Polyester,Pink|White,XS|S|M|L,women,summer,,Missing title field,0,200
+Broken Price Product,not-a-number,https://www.nike.com/t/air-force-1-shoe-abcde,NOT_IMPORTED,2024-03-10,Leather,White,40|41|42,men,all-season,,Purchase price is not numeric,5,300
+No Competitor Link,29.99,,NOT_IMPORTED,2024-03-15,Cotton,Black|White,S|M|L,unisex,summer,,Competitor link is empty,0,100
+Bad URL Product,12.00,not-a-valid-url,NOT_IMPORTED,2024-01-28,Fleece,Red,One Size,kids,winter,https://www.globalsources.com/kids-hoodie-2222,Competitor link is not a URL,15,80
+Empty Price And No Link,,,READY_TO_IMPORT,2024-04-05,Linen,Beige,S|M,women,spring,,Both price and link missing — two errors on one row,8,120
+Valid Row After Errors,45.00,https://www.asos.com/product/valid-after-errors-99999,ALREADY_IMPORTED,2024-05-01,Silk,Black,XS|S,women,summer,https://supplier.com/silk-top-777,This row is also valid,20,60
+Bad Discount,15.00,https://www.topshop.com/product/bad-discount-55555,NOT_IMPORTED,2024-02-14,Denim,Blue|Black,S|M|L,women,fall,,Discount is 150 which exceeds 100,150,90
+Bad Stock,9.99,https://www.forever21.com/product/bad-stock-66666,NOT_IMPORTED,2024-03-22,Polyester,Green,S|M,women,spring,,Stock quantity is negative,-10,200

@@ -114,6 +114,17 @@ export class ProductModel {
     };
   }
 
+  static async batchCreate(
+    products: Omit<Product, 'id' | 'created_at' | 'updated_at'>[]
+  ): Promise<number> {
+    const { data, error } = await supabase
+      .from('products')
+      .insert(products)
+      .select('id');
+    if (error) throw error;
+    return data?.length ?? 0;
+  }
+
   static async sync(organizationId: string): Promise<SyncResult> {
     const { data, error } = await supabase.functions.invoke('shopify-sync-products', {
       body: { org_id: organizationId },
