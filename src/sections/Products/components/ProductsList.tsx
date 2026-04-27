@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import {
   Package, PackagePlus, Tag, Ruler, Layers, DollarSign,
   ExternalLink, Trash2, Loader2, Pencil, ShoppingBag,
-  RefreshCw, AlertTriangle, Plug, Boxes, FileUp,
+  RefreshCw, AlertTriangle, Plug, Boxes, FileUp, X,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
 import type { Product } from '../../../lib/supabase/types';
-import { PRODUCT_STATUS_LABEL, PRODUCT_STATUS_CLASS } from '../../../constants/productStatus';
+import { PRODUCT_STATUS_LABEL, PRODUCT_STATUS_CLASS, PRODUCT_STATUS } from '../../../constants/productStatus';
+import type { ProductStatus } from '../../../lib/supabase/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Button } from '../../../components/ui/button';
 import { formatRelative } from '../../../lib/utils';
 import ShopifyProductCard from './ShopifyProductCard';
@@ -31,7 +33,13 @@ function ProductPhoto({ url }: { url: string | null }) {
   );
 }
 
-function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
+function ProductCard({ product, onDelete, onEdit, selected, onToggle }: {
+  product: Product;
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+  selected: boolean;
+  onToggle: (id: string) => void;
+}) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -43,7 +51,16 @@ function ProductCard({ product, onDelete, onEdit }: { product: Product; onDelete
   }
 
   return (
-    <div className="card flex overflow-hidden hover:border-ds-border/80 transition-colors min-h-[160px]">
+    <div className={`card flex overflow-hidden transition-colors min-h-[160px] ${selected ? 'border-ds-accent/40 bg-ds-accent/[0.03]' : 'hover:border-ds-border/80'}`}>
+      <div className="flex items-start justify-center pt-4 px-3 shrink-0">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggle(product.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-4 h-4 cursor-pointer accent-blue-500 rounded"
+        />
+      </div>
       <ProductPhoto url={product.photo_url ?? null} />
       <div className="flex-1 px-5 py-4 flex flex-col justify-between min-w-0">
         <div>
@@ -134,9 +151,13 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const { activeOrg } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('listed');
 
-  const [products,       setProducts]       = useState<Product[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState<string | null>(null);
+  const [products,          setProducts]          = useState<Product[]>([]);
+  const [loading,           setLoading]           = useState(true);
+  const [error,             setError]             = useState<string | null>(null);
+
+  const [selectedIds,       setSelectedIds]       = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkLoading,       setBulkLoading]       = useState(false);
 
   const [csvModalOpen,    setCsvModalOpen]    = useState(false);
 
@@ -182,6 +203,51 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     setSyncing(false);
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    setConfirmBulkDelete(false);
+  }
+
+  function handleSelectAll() {
+    if (selectedIds.size === products.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(products.map((p) => p.id)));
+    }
+    setConfirmBulkDelete(false);
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setConfirmBulkDelete(false);
+  }
+
+  async function handleBulkDelete() {
+    if (!confirmBulkDelete) { setConfirmBulkDelete(true); return; }
+    setBulkLoading(true);
+    try {
+      await ProductModel.bulkDelete(Array.from(selectedIds));
+      setProducts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+      clearSelection();
+    } catch { /* noop */ }
+    setBulkLoading(false);
+  }
+
+  async function handleBulkStatus(status: string) {
+    if (!status) return;
+    setBulkLoading(true);
+    try {
+      await ProductModel.bulkUpdateStatus(Array.from(selectedIds), status);
+      setProducts((prev) => prev.map((p) => selectedIds.has(p.id) ? { ...p, status: status as ProductStatus } : p));
+      clearSelection();
+    } catch { /* noop */ }
+    setBulkLoading(false);
+  }
+
   const listedCount  = loading ? null : products.length;
   const shopifyCount = shopifyLoading ? null : shopifyProducts.length;
 
@@ -219,8 +285,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
       </div>
 
       <div className="flex items-center gap-1 border-b border-ds-border mb-6">
-        <TabButton active={activeTab === 'listed'} onClick={() => setActiveTab('listed')} icon={<Package size={13} />} label="Listed Products" count={listedCount} />
-        <TabButton active={activeTab === 'shopify'} onClick={() => setActiveTab('shopify')} icon={<ShoppingBag size={13} />} label="Shopify Products" count={shopifyCount} />
+        <TabButton active={activeTab === 'listed'} onClick={() => { setActiveTab('listed'); clearSelection(); }} icon={<Package size={13} />} label="Listed Products" count={listedCount} />
+        <TabButton active={activeTab === 'shopify'} onClick={() => { setActiveTab('shopify'); clearSelection(); }} icon={<ShoppingBag size={13} />} label="Shopify Products" count={shopifyCount} />
       </div>
 
       {activeTab === 'listed' && (
@@ -236,11 +302,56 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
             </div>
           )}
           {!loading && !error && products.length > 0 && (
-            <div className="space-y-3">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))} onEdit={(id) => onNavigate('products-edit-item', id)} />
-              ))}
-            </div>
+            <>
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2.5 mb-4 rounded-xl border border-ds-accent/25 bg-ds-accent/5 flex-wrap">
+                  <span className="text-ds-text text-sm font-medium shrink-0">{selectedIds.size} selected</span>
+                  <div className="h-4 w-px bg-ds-border" />
+                  <button
+                    onClick={handleSelectAll}
+                    disabled={bulkLoading}
+                    className="text-xs text-ds-accent hover:text-ds-accentHover transition-colors disabled:opacity-50 shrink-0"
+                  >
+                    {selectedIds.size === products.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  <div className="h-4 w-px bg-ds-border" />
+                  <Select onValueChange={handleBulkStatus} disabled={bulkLoading}>
+                    <SelectTrigger className="w-40 shrink-0">
+                      <SelectValue placeholder="Change status…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(PRODUCT_STATUS).map(([k]) => (
+                        <SelectItem key={k} value={k}>{PRODUCT_STATUS_LABEL[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <button
+                    onClick={handleBulkDelete}
+                    onBlur={() => setConfirmBulkDelete(false)}
+                    disabled={bulkLoading}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all disabled:opacity-50 shrink-0 ${confirmBulkDelete ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'border-ds-border text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400'}`}
+                  >
+                    {bulkLoading ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                    {confirmBulkDelete ? `Confirm delete ${selectedIds.size}?` : `Delete ${selectedIds.size}`}
+                  </button>
+                  <button onClick={clearSelection} className="ml-auto flex items-center gap-1 text-xs text-ds-muted hover:text-ds-text2 transition-colors shrink-0">
+                    <X size={12} />Clear
+                  </button>
+                </div>
+              )}
+              <div className="space-y-3">
+                {products.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    selected={selectedIds.has(p.id)}
+                    onToggle={toggleSelect}
+                    onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
+                    onEdit={(id) => onNavigate('products-edit-item', id)}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </>
       )}

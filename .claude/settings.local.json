@@ -4,7 +4,8 @@
       "Bash(npm run:*)",
       "Bash(npx tsc *)",
       "Bash(npm install *)",
-      "Bash(claude plugin *)"
+      "Bash(claude plugin *)",
+      "Bash(npx shadcn@latest *)"
     ]
   }
 }

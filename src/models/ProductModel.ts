@@ -125,6 +125,16 @@ export class ProductModel {
     return data?.length ?? 0;
   }
 
+  static async bulkDelete(ids: string[]): Promise<void> {
+    const { error } = await supabase.from('products').delete().in('id', ids);
+    if (error) throw error;
+  }
+
+  static async bulkUpdateStatus(ids: string[], status: string): Promise<void> {
+    const { error } = await supabase.from('products').update({ status }).in('id', ids);
+    if (error) throw error;
+  }
+
   static async sync(organizationId: string): Promise<SyncResult> {
     const { data, error } = await supabase.functions.invoke('shopify-sync-products', {
       body: { org_id: organizationId },
