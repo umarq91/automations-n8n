@@ -6,6 +6,7 @@ import Sidebar, { type ActiveSection } from "./components/layout/Sidebar";
 import LoginPage from "./components/auth/LoginPage";
 import { useAuth } from "./contexts/AuthContext";
 import { canAccess, getDefaultSection } from "./lib/rbac";
+import NotificationBell from "./components/shared/NotificationBell";
 
 const VALID_SECTIONS: ActiveSection[] = [
   "overview",
@@ -168,6 +169,8 @@ function App() {
                     )}
                   </div>
                 )}
+
+                <NotificationBell />
 
                 {/* Avatar + sign out */}
                 <div className="flex items-center gap-2">

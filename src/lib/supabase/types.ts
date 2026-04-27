@@ -233,6 +233,10 @@ export interface AiConfig {
   rules: string[];
   vector_namespace: string | null;
   vector_id: string | null;
+  bannable_words_vector_id: string | null;
+  bannable_words_vector_namespace: string | null;
+  seo_vector_id: string | null;
+  seo_vector_namespace: string | null;
   created_at: string;
   updated_at: string;
 }
