@@ -219,9 +219,10 @@ export interface WorkflowLog {
   type: 'error' | 'success' | string | null;
   error_description: string | null;
   last_node_executed: string | null;
-  error_message: string | null;
+  message: string | null;
   product_id: string | null;
   product_title: string | null;
+  product_link: string | null;
   created_at: string;
 }
 

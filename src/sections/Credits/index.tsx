@@ -78,8 +78,8 @@ export default function CreditsSection() {
   useEffect(() => { load(); }, [activeOrg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="p-8 max-w-5xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto animate-fade-in">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center shadow-accent-glow">
             <CreditCard size={18} className="text-white" />

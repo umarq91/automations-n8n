@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle2, XCircle, Package, ExternalLink, X, CheckCheck, Activity } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, Package, ExternalLink, X, CheckCheck, Activity, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRealtimeCreditLogs } from '../../hooks/useRealtimeCreditLogs';
 import { formatRelative } from '../../lib/utils';
@@ -33,8 +33,8 @@ function NotificationItem({ n }: { n: WorkflowNotification }) {
             <Package size={9} className="shrink-0" />{n.product_title}
           </p>
         )}
-        {isError && n.error_message && (
-          <p className="text-[11px] text-red-400/80 truncate mt-0.5">{n.error_message}</p>
+        {isError && n.message && (
+          <p className="text-[11px] text-red-400/80 truncate mt-0.5">{n.message}</p>
         )}
         {n.execution_url && (
           <a
@@ -56,7 +56,7 @@ function NotificationItem({ n }: { n: WorkflowNotification }) {
 
 export default function NotificationBell() {
   const { activeOrg } = useAuth();
-  const { notifications, unreadCount, markAllRead, clear } = useRealtimeCreditLogs(activeOrg?.id);
+  const { notifications, unreadCount, loading, markAllRead, clear } = useRealtimeCreditLogs(activeOrg?.id);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -73,52 +73,90 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
-    <div className="relative" ref={panelRef}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative p-2 rounded-xl bg-ds-surface border border-ds-border hover:bg-ds-hover transition group"
-        title="Workflow notifications"
-      >
-        <Bell size={14} className="text-ds-muted group-hover:text-ds-text2 transition-colors" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-ds-accent text-white text-[10px] font-bold flex items-center justify-center leading-none">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
+  // Close on Escape
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
+  return (
+    <>
+      {/* Mobile backdrop — behind panel (z-40 < panel z-50) */}
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-ds-surface border border-ds-border rounded-xl shadow-card overflow-hidden z-50">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-ds-border">
-            <span className="text-ds-text text-sm font-semibold">Workflow Logs</span>
-            <div className="flex items-center gap-2">
-              {notifications.length > 0 && (
-                <button onClick={clear} className="flex items-center gap-1 text-[11px] text-ds-muted hover:text-ds-text2 transition-colors">
-                  <X size={11} />Clear
+        <div
+          className="fixed inset-0 z-40 bg-black/30 sm:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <div className="relative" ref={panelRef}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="relative p-2 rounded-xl bg-ds-surface border border-ds-border hover:bg-ds-hover transition group"
+          title="Workflow notifications"
+          aria-label="Notifications"
+        >
+          <Bell size={14} className="text-ds-muted group-hover:text-ds-text2 transition-colors" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-ds-accent text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {open && (
+          <div className="fixed top-[57px] left-2 right-2 z-50 bg-ds-surface border border-ds-border rounded-xl shadow-card overflow-hidden sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-1rem)]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-ds-border">
+              <span className="text-ds-text text-sm font-semibold">Workflow Logs</span>
+              <div className="flex items-center gap-2">
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clear}
+                    className="flex items-center gap-1 text-[11px] text-ds-muted hover:text-ds-text2 transition-colors px-1.5 py-0.5 rounded"
+                  >
+                    <X size={11} />Clear
+                  </button>
+                )}
+                {notifications.some((n) => !n._read) && (
+                  <button
+                    onClick={markAllRead}
+                    className="flex items-center gap-1 text-[11px] text-ds-accent hover:text-ds-accentHover transition-colors px-1.5 py-0.5 rounded"
+                  >
+                    <CheckCheck size={11} />Mark read
+                  </button>
+                )}
+                <button
+                  onClick={() => setOpen(false)}
+                  className="sm:hidden p-1 rounded text-ds-muted hover:text-ds-text2 transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={14} />
                 </button>
-              )}
-              {notifications.some((n) => !n._read) && (
-                <button onClick={markAllRead} className="flex items-center gap-1 text-[11px] text-ds-accent hover:text-ds-accentHover transition-colors">
-                  <CheckCheck size={11} />Mark read
-                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="max-h-[min(24rem,60vh)] overflow-y-auto overscroll-contain">
+              {loading ? (
+                <div className="flex items-center justify-center py-10 gap-2 text-ds-muted">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="text-xs">Loading…</span>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                  <Activity size={22} className="text-ds-muted mb-3" />
+                  <p className="text-ds-text2 text-xs font-medium">No activity yet</p>
+                  <p className="text-ds-muted text-[11px] mt-1">Workflow execution results will appear here in real-time.</p>
+                </div>
+              ) : (
+                notifications.map((n) => <NotificationItem key={n.id} n={n} />)
               )}
             </div>
           </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-                <Activity size={22} className="text-ds-muted mb-3" />
-                <p className="text-ds-text2 text-xs font-medium">No activity yet</p>
-                <p className="text-ds-muted text-[11px] mt-1">Workflow execution results will appear here in real-time.</p>
-              </div>
-            ) : (
-              notifications.map((n) => <NotificationItem key={n.id} n={n} />)
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

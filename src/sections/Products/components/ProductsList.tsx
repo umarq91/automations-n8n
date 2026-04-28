@@ -41,13 +41,13 @@ function DarkCheckbox({ checked, onChange }: { checked: boolean; onChange: () =>
 function ProductPhoto({ url }: { url: string | null }) {
   if (!url) {
     return (
-      <div className="w-44 shrink-0 min-h-[160px] bg-ds-surface2 border-r border-ds-border flex items-center justify-center rounded-l-xl">
+      <div className="w-full h-36 sm:w-44 sm:h-auto sm:min-h-[160px] sm:shrink-0 bg-ds-surface2 border-b sm:border-b-0 sm:border-r border-ds-border flex items-center justify-center rounded-t-xl sm:rounded-t-none sm:rounded-l-xl">
         <Package size={28} className="text-ds-muted" />
       </div>
     );
   }
   return (
-    <div className="w-44 shrink-0 min-h-[160px] overflow-hidden rounded-l-xl">
+    <div className="w-full h-36 sm:w-44 sm:h-auto sm:min-h-[160px] sm:shrink-0 overflow-hidden rounded-t-xl sm:rounded-t-none sm:rounded-l-xl">
       <img src={url} alt="product" className="w-full h-full object-cover" />
     </div>
   );
@@ -73,10 +73,11 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode
 
   return (
     <div
-      className={`card flex overflow-hidden transition-colors min-h-[160px] ${
+      className={`card flex flex-col sm:flex-row overflow-hidden transition-colors ${
         selected ? 'border-ds-accent/40 bg-ds-accent/[0.03]' : 'hover:border-ds-border/80'
       }`}
     >
+      {/* Checkbox — desktop: left column. Mobile: hidden here, shown in content */}
       <AnimatePresence initial={false}>
         {selectMode && (
           <motion.div
@@ -84,7 +85,7 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode
             animate={{ width: 'auto', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-            className="flex items-start justify-center pt-[18px] overflow-hidden shrink-0"
+            className="hidden sm:flex items-start justify-center pt-[18px] overflow-hidden shrink-0"
           >
             <div className="px-3">
               <DarkCheckbox checked={selected} onChange={() => onToggle(product.id)} />
@@ -95,8 +96,25 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode
 
       <ProductPhoto url={product.photo_url ?? null} />
 
-      <div className="flex-1 px-5 py-4 flex flex-col justify-between min-w-0">
+      <div className="flex-1 px-4 sm:px-5 py-4 flex flex-col justify-between min-w-0">
         <div>
+          {/* Mobile-only checkbox row */}
+          <AnimatePresence initial={false}>
+            {selectMode && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="sm:hidden overflow-hidden"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <DarkCheckbox checked={selected} onChange={() => onToggle(product.id)} />
+                  <span className="text-xs text-ds-muted">Select</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0">
               <h3 className="text-ds-text font-semibold text-base leading-tight truncate">{product.title}</h3>
@@ -145,9 +163,9 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-ds-borderSoft">
-          <p className="text-ds-muted text-xs truncate flex-1 italic">{product.note || ''}</p>
-          <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-ds-borderSoft">
+          <p className="text-ds-muted text-xs italic flex-1 min-w-0 truncate">{product.note || ''}</p>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {product.competitor_link && <a href={product.competitor_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"><ExternalLink size={11} /> Competitor</a>}
             {product.supplier_link && <a href={product.supplier_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"><ExternalLink size={11} /> Supplier</a>}
             {product.shopify_product_url && <a href={product.shopify_product_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"><ExternalLink size={11} /> Shopify</a>}
@@ -297,7 +315,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Title row */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center shadow-accent-glow">
             <Package size={18} className="text-white" />
@@ -314,28 +333,6 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
 
         {activeTab === 'listed' ? (
           <div className="flex items-center gap-2">
-            {!loading && !error && products.length > 0 && (
-              <button
-                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
-                  selectMode
-                    ? 'bg-ds-accent/10 border-ds-accent/30 text-ds-accent'
-                    : 'border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2'
-                }`}
-              >
-                <CheckSquare size={13} />
-                Select
-              </button>
-            )}
-            <button
-              onClick={() => fetchProducts(true)}
-              disabled={refreshing || loading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2 disabled:opacity-50 transition-all font-medium"
-              title="Refresh"
-            >
-              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-              Refresh
-            </button>
             <Button variant="secondary" size="default" onClick={() => setCsvModalOpen(true)}>
               <FileUp size={14} />Import CSV
             </Button>
@@ -350,6 +347,31 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
           </Button>
         )}
       </div>
+
+      {/* Utility strip — Select + Refresh, listed tab only */}
+      {activeTab === 'listed' && !loading && !error && products.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
+              selectMode
+                ? 'bg-ds-accent/10 border-ds-accent/30 text-ds-accent'
+                : 'border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2'
+            }`}
+          >
+            <CheckSquare size={13} />
+            Select
+          </button>
+          <button
+            onClick={() => fetchProducts(true)}
+            disabled={refreshing || loading}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2 disabled:opacity-50 transition-all font-medium"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-ds-border mb-6">

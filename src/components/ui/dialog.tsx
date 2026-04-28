@@ -37,7 +37,7 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%]',
-        'w-full max-w-md bg-ds-surface border border-ds-border rounded-2xl shadow-card',
+        'w-[calc(100%-2rem)] max-w-md bg-ds-surface border border-ds-border rounded-2xl shadow-card',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
@@ -61,7 +61,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col px-6 py-5 border-b border-ds-borderSoft', className)}
+    className={cn('flex flex-col px-4 sm:px-6 py-4 sm:py-5 border-b border-ds-borderSoft', className)}
     {...props}
   />
 );
@@ -69,7 +69,7 @@ DialogHeader.displayName = 'DialogHeader';
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex items-center justify-end gap-3 px-6 py-4 border-t border-ds-borderSoft', className)}
+    className={cn('flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-ds-borderSoft', className)}
     {...props}
   />
 );
@@ -100,7 +100,7 @@ const DialogDescription = React.forwardRef<
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('px-6 py-5', className)} {...props} />
+  <div className={cn('px-4 sm:px-6 py-4 sm:py-5', className)} {...props} />
 );
 DialogBody.displayName = 'DialogBody';
 

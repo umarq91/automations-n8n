@@ -103,8 +103,8 @@ export default function EmailSection() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-1 card overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 card overflow-hidden">
           <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center justify-between">
             <h3 className="font-semibold text-ds-text text-sm">Library {!loading && `(${filtered.length})`}</h3>
             {customCount > 0 && <span className="text-xs text-ds-muted">{customCount} edited</span>}
@@ -159,7 +159,7 @@ export default function EmailSection() {
           </div>
         </div>
 
-        <div className="xl:col-span-2">
+        <div className="lg:col-span-2">
           {selected ? (
             <TemplateDetail key={selected.id} template={selected} onDelete={handleDelete} onUpdate={handleUpdate} />
           ) : (

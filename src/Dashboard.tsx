@@ -44,7 +44,7 @@ function Dashboard({ activeSection, editingProductId, onNavigate }: DashboardPro
         <ProductsSection subSection="edit-item" editingProductId={editingProductId ?? undefined} onNavigate={onNavigate} />
       )}
       {activeSection === 'members-add' && (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-8 max-w-5xl mx-auto">
           <MembersSection onNavigate={onNavigate} />
         </div>
       )}

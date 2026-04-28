@@ -65,12 +65,12 @@ function LogCard({ log }: { log: WorkflowLog }) {
         </div>
 
         {/* Error details */}
-        {isError && (log.error_message || log.error_description || log.last_node_executed) && (
+        {isError && (log.message || log.error_description || log.last_node_executed) && (
           <div className="bg-red-500/5 border border-red-500/15 rounded-lg px-3.5 py-3 space-y-1.5">
-            {log.error_message && (
-              <p className="text-red-400 text-xs font-medium leading-relaxed">{log.error_message}</p>
+            {log.message && (
+              <p className="text-red-400 text-xs font-medium leading-relaxed">{log.message}</p>
             )}
-            {log.error_description && log.error_description !== log.error_message && (
+            {log.error_description && log.error_description !== log.message && (
               <p className="text-red-400/70 text-xs leading-relaxed">{log.error_description}</p>
             )}
             {log.last_node_executed && (
@@ -139,7 +139,7 @@ export default function LogsSection() {
 
       {/* Stats chips */}
       {!loading && !error && logs.length > 0 && (
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
           <div className="flex items-center gap-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl px-4 py-2.5">
             <CheckCircle2 size={13} className="text-emerald-400" />
             <span className="text-ds-text2 text-xs font-medium">{successCount} successful</span>

@@ -122,8 +122,8 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
         <p className="text-ds-muted text-sm mt-1">Manage your workspace, members, and billing.</p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2 card p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 card p-6">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl gradient-indigo flex items-center justify-center flex-shrink-0 shadow-accent-glow">
               <Building2 size={24} className="text-white" />
@@ -232,14 +232,12 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
       </div>
 
       <div className="card overflow-hidden">
-        <div className="px-6 py-4 border-b border-ds-borderSoft flex items-center justify-between gap-4">
+        <div className="px-4 sm:px-6 py-4 border-b border-ds-borderSoft flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <Users size={15} className="text-ds-muted" />
             <h2 className="font-semibold text-ds-text text-sm">Members</h2>
             <span className="px-2 py-0.5 bg-ds-hover text-ds-muted text-xs rounded-full font-medium">{members.length}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-xs text-ds-muted">
+            <div className="hidden sm:flex items-center gap-3 text-xs text-ds-muted ml-1">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" /> {activeCount} active
               </span>
@@ -249,12 +247,12 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                 </span>
               )}
             </div>
-            {canEdit && (
-              <Button variant="primary" size="sm" onClick={() => onNavigate('members-add')}>
-                <UserPlus size={13} /> Add Member
-              </Button>
-            )}
           </div>
+          {canEdit && (
+            <Button variant="primary" size="sm" onClick={() => onNavigate('members-add')}>
+              <UserPlus size={13} /> Add Member
+            </Button>
+          )}
         </div>
 
         {loading && (
@@ -276,7 +274,7 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
         )}
         {!loading && !error && members.length > 0 && (
           <div>
-            <div className="hidden sm:grid grid-cols-12 px-6 py-3 text-[10px] font-semibold text-ds-muted uppercase tracking-widest border-b border-ds-borderSoft bg-ds-surface2/40">
+            <div className="hidden sm:grid grid-cols-12 px-4 sm:px-6 py-3 text-[10px] font-semibold text-ds-muted uppercase tracking-widest border-b border-ds-borderSoft bg-ds-surface2/40">
               <div className="col-span-5">Member</div>
               <div className="col-span-3">Role</div>
               <div className="col-span-2">Status</div>
@@ -291,14 +289,15 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                 return (
                   <div
                     key={member.id}
-                    className={`grid grid-cols-12 items-center px-6 py-4 transition-colors ${
+                    className={`px-4 sm:px-6 py-4 transition-colors sm:grid sm:grid-cols-12 sm:items-center ${
                       isMe ? 'bg-ds-accent/5 hover:bg-ds-accent/8' : 'hover:bg-ds-hover/50'
                     }`}
                   >
-                    <div className="col-span-12 sm:col-span-5 flex items-center gap-3 mb-2 sm:mb-0">
+                    {/* Mobile: flex card layout */}
+                    <div className="sm:col-span-5 flex items-center gap-3 mb-2 sm:mb-0">
                       <Avatar name={member.user?.full_name} email={member.user?.email} size="sm" />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-semibold text-ds-text truncate">{member.user?.full_name ?? 'Unnamed'}</p>
                           {isMe && (
                             <span className="text-[10px] bg-ds-accent/10 text-ds-accent px-1.5 py-0.5 rounded font-semibold leading-none">you</span>
@@ -308,20 +307,29 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
                           <Mail size={10} />
                           <span className="truncate">{member.user?.email}</span>
                         </div>
+                        {/* Mobile: show role + status inline under name */}
+                        <div className="flex items-center gap-2 mt-1.5 sm:hidden">
+                          <span className={`badge ${role.className}`}>
+                            <RoleIcon size={11} className="mr-1" />{role.label}
+                          </span>
+                          <span className={`flex items-center gap-1.5 text-xs font-medium ${status.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />{status.label}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="col-span-6 sm:col-span-3">
+                    <div className="hidden sm:block sm:col-span-3">
                       <span className={`badge ${role.className}`}>
                         <RoleIcon size={11} className="mr-1" />{role.label}
                       </span>
                     </div>
-                    <div className="col-span-3 sm:col-span-2">
+                    <div className="hidden sm:block sm:col-span-2">
                       <span className={`flex items-center gap-1.5 text-xs font-medium ${status.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />{status.label}
                       </span>
                     </div>
-                    <div className="col-span-3 sm:col-span-2 text-right">
-                      <div className="flex items-center justify-end gap-1 text-xs text-ds-muted">
+                    <div className="sm:col-span-2 sm:text-right mt-1 sm:mt-0">
+                      <div className="flex items-center sm:justify-end gap-1 text-xs text-ds-muted">
                         <Clock size={10} />{formatDate(member.created_at)}
                       </div>
                     </div>

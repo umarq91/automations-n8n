@@ -97,7 +97,7 @@ export default function CsvImportModal({ open, onClose, onImported }: CsvImportM
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="truncate">
             {step === 'upload' ? 'Import Products via CSV' : `Preview — ${fileName}`}
           </DialogTitle>
           <DialogDescription>
@@ -107,7 +107,7 @@ export default function CsvImportModal({ open, onClose, onImported }: CsvImportM
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-4">
           {step === 'upload' && (
             <>
               <label
@@ -134,7 +134,7 @@ export default function CsvImportModal({ open, onClose, onImported }: CsvImportM
 
               <div className="card-elevated p-4 space-y-2">
                 <p className="text-ds-text2 text-xs font-semibold uppercase tracking-wider">Column guide</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                   {[
                     ['title', 'required', 'Product name'],
                     ['purchase_price', 'required', 'Numeric (e.g. 29.99)'],
@@ -147,9 +147,9 @@ export default function CsvImportModal({ open, onClose, onImported }: CsvImportM
                     ['discount', 'optional', '0–100'],
                     ['stock_quantity', 'optional', 'Integer ≥ 0'],
                   ].map(([col, req, hint]) => (
-                    <div key={col} className="flex items-baseline gap-1.5">
-                      <code className="text-ds-accent text-[11px]">{col}</code>
-                      <span className={`text-[10px] px-1 rounded ${req === 'required' ? 'bg-red-500/10 text-red-400' : 'bg-ds-surface2 text-ds-muted'}`}>{req}</span>
+                    <div key={col} className="flex items-baseline gap-1.5 min-w-0">
+                      <code className="text-ds-accent text-[11px] shrink-0">{col}</code>
+                      <span className={`text-[10px] px-1 rounded shrink-0 ${req === 'required' ? 'bg-red-500/10 text-red-400' : 'bg-ds-surface2 text-ds-muted'}`}>{req}</span>
                       <span className="text-ds-muted text-[11px] truncate">{hint}</span>
                     </div>
                   ))}
@@ -202,10 +202,10 @@ export default function CsvImportModal({ open, onClose, onImported }: CsvImportM
                   </p>
                   <div className="border border-amber-500/20 rounded-xl overflow-hidden bg-amber-500/5 max-h-40 overflow-y-auto">
                     {result.errors.map((e, i) => (
-                      <div key={i} className="flex items-start gap-3 px-3 py-2 border-b border-amber-500/10 last:border-0">
-                        <span className="text-ds-muted shrink-0">Row {e.rowIndex}</span>
-                        <span className="text-amber-300 font-mono shrink-0">{e.field}</span>
-                        <span className="text-amber-400/80">{e.message}</span>
+                      <div key={i} className="flex items-start gap-2 px-3 py-2 border-b border-amber-500/10 last:border-0 min-w-0">
+                        <span className="text-ds-muted shrink-0 text-[11px]">Row {e.rowIndex}</span>
+                        <span className="text-amber-300 font-mono shrink-0 text-[11px]">{e.field}</span>
+                        <span className="text-amber-400/80 text-[11px] break-words min-w-0">{e.message}</span>
                       </div>
                     ))}
                   </div>

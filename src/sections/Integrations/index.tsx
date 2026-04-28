@@ -69,7 +69,7 @@ export default function IntegrationsSection() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ds-text">Integrations</h1>
           <p className="text-ds-muted text-sm mt-1">Connect your external platforms to power your n8n automations.</p>

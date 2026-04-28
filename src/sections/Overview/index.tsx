@@ -68,7 +68,7 @@ export default function OverviewSection({ onNavigate }: OverviewSectionProps) {
         <p className="text-ds-muted text-sm mt-1">April 15, 2026 — All systems operational</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -92,8 +92,8 @@ export default function OverviewSection({ onNavigate }: OverviewSectionProps) {
         })}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2 card overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="md:col-span-2 card overflow-hidden">
           <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity size={15} className="text-ds-muted" />

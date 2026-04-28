@@ -11,7 +11,7 @@ interface ProductsSectionProps {
 
 export default function ProductsSection({ subSection, editingProductId, onNavigate }: ProductsSectionProps) {
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       {subSection === 'list'      && <ProductsList onNavigate={onNavigate} />}
       {subSection === 'add-item'  && <AddItemForm onNavigate={onNavigate} />}
       {subSection === 'edit-item' && editingProductId && (

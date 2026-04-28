@@ -149,12 +149,12 @@ export default function AIConfigSection() {
   return (
     <>
       <div className={`space-y-5 animate-fade-in ${isDirty ? 'pb-24' : ''}`}>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-ds-text">AI Configuration</h1>
             <p className="text-ds-muted text-sm mt-1">Define how the AI behaves across your automation workflows.</p>
           </div>
-          <div className="flex items-center gap-2 px-3.5 py-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl flex-shrink-0">
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl shrink-0">
             <Bot size={13} className="text-ds-accent" />
             <span className="text-ds-text2 text-xs font-medium">Automation AI</span>
           </div>
@@ -177,7 +177,7 @@ export default function AIConfigSection() {
         {!loading && !loadError && (
           <>
             <div className="card p-6">
-              <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                 <div>
                   <h2 className="text-sm font-semibold text-ds-text">General Prompt</h2>
                   <p className="text-ds-muted text-xs mt-0.5">
@@ -234,7 +234,7 @@ export default function AIConfigSection() {
             </div>
 
             <div className="card p-6">
-              <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
                 <div>
                   <h2 className="text-sm font-semibold text-ds-text">Rules</h2>
                   <p className="text-ds-muted text-xs mt-0.5">
@@ -310,7 +310,7 @@ export default function AIConfigSection() {
       </div>
 
       {isDirty && (
-        <div className="fixed bottom-0 left-60 right-0 z-50 border-t border-ds-border bg-ds-surface/95 backdrop-blur-md">
+        <div className="fixed bottom-0 left-0 lg:left-60 right-0 z-50 border-t border-ds-border bg-ds-surface/95 backdrop-blur-md">
           <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm text-ds-text2">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />

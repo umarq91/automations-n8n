@@ -143,7 +143,7 @@ export default function ShopifyProductCard({ product }: { product: Product }) {
           {/* Inventory dot */}
           <span className={`flex items-center gap-1.5 text-[11px] font-medium ${invTone.text}`}>
             <span className={`inline-block w-1.5 h-1.5 rounded-full ${invTone.dot}`} />
-            {meta.total_inventory != null ? meta.total_inventory : DASH}
+            <span className="hidden sm:inline">{meta.total_inventory != null ? meta.total_inventory : DASH}</span>
           </span>
 
           {/* Price */}
@@ -181,10 +181,10 @@ export default function ShopifyProductCard({ product }: { product: Product }) {
             <div className="px-5 pb-5 border-t border-ds-borderSoft">
 
               {/* Image gallery + main info */}
-              <div className="flex gap-5 pt-5">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 pt-5">
                 {/* Gallery */}
-                <div className="w-44 shrink-0 flex flex-col gap-2">
-                  <div className="w-44 h-44 bg-ds-surface2 border border-ds-border rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="w-full sm:w-44 sm:shrink-0 flex flex-col gap-2">
+                  <div className="w-full sm:w-44 h-44 bg-ds-surface2 border border-ds-border rounded-xl overflow-hidden flex items-center justify-center">
                     {thumb
                       ? <img src={thumb} alt={product.title} className="w-full h-full object-cover" />
                       : <Package size={32} className="text-ds-muted" />
@@ -318,7 +318,7 @@ export default function ShopifyProductCard({ product }: { product: Product }) {
               )}
 
               {/* Footer */}
-              <div className="mt-5 pt-4 border-t border-ds-borderSoft flex flex-wrap items-center justify-between gap-3">
+              <div className="mt-5 pt-4 border-t border-ds-borderSoft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ds-muted">
                   <span className="flex items-center gap-1"><ImageIcon size={10} />{meta.images.length} image{meta.images.length !== 1 ? 's' : ''}</span>
                   <span>·</span>
