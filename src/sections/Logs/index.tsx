@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { WorkflowLogModel } from '../../models/WorkflowLogModel';
 import type { WorkflowLog } from '../../lib/supabase/types';
 import { formatRelative } from '../../lib/utils';
+import { Pagination } from '../../components/ui/pagination';
+import { PAGE_SIZE } from '../../constants/pagination';
 
 type FilterType = 'all' | 'success' | 'error';
 
@@ -17,9 +19,7 @@ function LogCard({ log }: { log: WorkflowLog }) {
   return (
     <div className="card overflow-hidden">
       <div className="flex gap-0">
-        {/* Status stripe */}
         <div className={`w-1 shrink-0 ${isSuccess ? 'bg-emerald-500/70' : isError ? 'bg-red-500/70' : 'bg-ds-border'}`} />
-
         <div className="flex-1 px-5 py-4 min-w-0">
           {/* Top row */}
           <div className="flex items-start justify-between gap-3 mb-2">
@@ -121,23 +121,62 @@ function LogCard({ log }: { log: WorkflowLog }) {
 export default function LogsSection() {
   const { activeOrg } = useAuth();
   const [logs,    setLogs]    = useState<WorkflowLog[]>([]);
+  const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [filter,  setFilter]  = useState<FilterType>('all');
 
-  useEffect(() => {
+  const [page, setPage] = useState<number>(() => {
+    const p = parseInt(new URLSearchParams(window.location.search).get('logs_page') ?? '1', 10);
+    return isNaN(p) || p < 1 ? 1 : p;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  async function fetchLogs(targetPage = page, currentFilter = filter) {
     if (!activeOrg) return;
     setLoading(true);
     setError(null);
-    WorkflowLogModel.getAll(activeOrg.id)
-      .then(setLogs)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [activeOrg]);
+    try {
+      const { data, total: t } = await WorkflowLogModel.getPage(
+        activeOrg.id, targetPage, PAGE_SIZE, currentFilter
+      );
+      setLogs(data);
+      setTotal(t);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const filtered     = logs.filter((l) => filter === 'all' || l.type === filter);
-  const successCount = logs.filter((l) => l.type === 'success').length;
-  const errorCount   = logs.filter((l) => l.type === 'error').length;
+  function goToPage(p: number) {
+    const clamped = Math.max(1, Math.min(p, totalPages));
+    setPage(clamped);
+    const params = new URLSearchParams(window.location.search);
+    params.set('logs_page', String(clamped));
+    window.history.replaceState(null, '', `?${params.toString()}`);
+  }
+
+  function changeFilter(f: FilterType) {
+    setFilter(f);
+    setPage(1);
+    const params = new URLSearchParams(window.location.search);
+    params.set('logs_page', '1');
+    window.history.replaceState(null, '', `?${params.toString()}`);
+    fetchLogs(1, f);
+  }
+
+  useEffect(() => { fetchLogs(page, filter); }, [activeOrg, page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    return () => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('logs_page');
+      const next = params.toString();
+      window.history.replaceState(null, '', next ? `?${next}` : window.location.pathname);
+    };
+  }, []);
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto animate-fade-in">
@@ -149,51 +188,26 @@ export default function LogsSection() {
         <div>
           <h1 className="text-ds-text font-bold text-xl tracking-tight">Logs & Monitoring</h1>
           <p className="text-ds-muted text-sm mt-0.5">
-            {loading ? 'Loading…' : `${logs.length} workflow execution${logs.length !== 1 ? 's' : ''} recorded`}
+            {loading ? 'Loading…' : `${total} workflow execution${total !== 1 ? 's' : ''} recorded`}
           </p>
         </div>
       </div>
 
-      {/* Stats chips */}
-      {!loading && !error && logs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6">
-          <div className="flex items-center gap-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl px-4 py-2.5">
-            <CheckCircle2 size={13} className="text-emerald-400" />
-            <span className="text-ds-text2 text-xs font-medium">{successCount} successful</span>
-          </div>
-          <div className="flex items-center gap-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl px-4 py-2.5">
-            <XCircle size={13} className="text-red-400" />
-            <span className="text-ds-text2 text-xs font-medium">{errorCount} failed</span>
-          </div>
-          {errorCount > 0 && successCount > 0 && (
-            <div className="flex items-center gap-2 bg-ds-surface2 border border-ds-borderSoft rounded-xl px-4 py-2.5">
-              <Activity size={13} className="text-ds-accent" />
-              <span className="text-ds-text2 text-xs font-medium">
-                {Math.round((successCount / logs.length) * 100)}% success rate
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Filter tabs */}
-      {!loading && !error && logs.length > 0 && (
+      {!loading && !error && total > 0 && (
         <div className="flex items-center gap-1 border-b border-ds-border mb-6">
           {(['all', 'success', 'error'] as FilterType[]).map((f) => {
-            const count = f === 'all' ? logs.length : f === 'success' ? successCount : errorCount;
-            if (f !== 'all' && count === 0) return null;
             const active = filter === f;
             return (
               <button
                 key={f}
-                onClick={() => setFilter(f)}
+                onClick={() => changeFilter(f)}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'text-ds-accent border-ds-accent' : 'text-ds-muted border-transparent hover:text-ds-text2'}`}
               >
                 {f === 'success' && <CheckCircle2 size={13} />}
                 {f === 'error'   && <XCircle      size={13} />}
                 {f === 'all'     && <Activity     size={13} />}
                 {f === 'all' ? 'All Logs' : f === 'success' ? 'Success' : 'Errors'}
-                <span className={`text-xs px-1.5 py-0.5 rounded ${active ? 'bg-ds-accent/10 text-ds-accent' : 'bg-ds-surface2 text-ds-muted'}`}>{count}</span>
               </button>
             );
           })}
@@ -210,7 +224,7 @@ export default function LogsSection() {
           <span className="text-red-400 text-sm">{error}</span>
         </div>
       )}
-      {!loading && !error && logs.length === 0 && (
+      {!loading && !error && total === 0 && (
         <div className="card flex flex-col items-center justify-center py-20 px-8 text-center">
           <div className="w-16 h-16 rounded-2xl bg-ds-surface2 border border-ds-border flex items-center justify-center mb-5">
             <Activity size={28} className="text-ds-muted" />
@@ -221,15 +235,26 @@ export default function LogsSection() {
           </p>
         </div>
       )}
-      {!loading && !error && filtered.length === 0 && logs.length > 0 && (
+      {!loading && !error && total > 0 && logs.length === 0 && (
         <div className="card flex flex-col items-center justify-center py-16 px-8 text-center">
           <p className="text-ds-muted text-sm">No {filter} logs found.</p>
         </div>
       )}
-      {!loading && !error && filtered.length > 0 && (
-        <div className="space-y-3">
-          {filtered.map((log) => <LogCard key={log.id} log={log} />)}
-        </div>
+      {!loading && !error && logs.length > 0 && (
+        <>
+          <div className="space-y-3">
+            {logs.map((log) => <LogCard key={log.id} log={log} />)}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
+              <p className="text-ds-muted text-[11px]">
+                Page {page} of {totalPages} · {total} total
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -17,7 +17,9 @@ import { formatRelative } from '../../../lib/utils';
 import ShopifyProductCard from './ShopifyProductCard';
 import CsvImportModal from './CsvImportModal';
 import ConfirmTextModal from '../../../components/shared/ConfirmTextModal';
+import { Pagination } from '../../../components/ui/pagination';
 import { CONFIRM_PHRASES } from '../../../constants/confirmations';
+import { PAGE_SIZE } from '../../../constants/pagination';
 import type { ActiveSection } from '../../../components/layout/Sidebar';
 
 type TabId = 'listed' | 'shopify';
@@ -57,7 +59,7 @@ function ProductPhoto({ url }: { url: string | null }) {
 
 function ProductCard({ product, onDelete, onEdit, onDuplicate, selected, onToggle, selectMode }: {
   product: Product;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => void | Promise<void>;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => Promise<void>;
   selected: boolean;
@@ -221,8 +223,16 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [activeTab, setActiveTab] = useState<TabId>('listed');
 
   const [products,          setProducts]          = useState<Product[]>([]);
+  const [total,             setTotal]             = useState(0);
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState<string | null>(null);
+
+  const [page, setPage] = useState<number>(() => {
+    const p = parseInt(new URLSearchParams(window.location.search).get('page') ?? '1', 10);
+    return isNaN(p) || p < 1 ? 1 : p;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const [refreshing,        setRefreshing]        = useState(false);
   const [selectMode,        setSelectMode]        = useState(false);
@@ -239,16 +249,40 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [syncing,         setSyncing]         = useState(false);
   const [syncMessage,     setSyncMessage]     = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
-  async function fetchProducts(quiet = false) {
+  async function fetchProducts(targetPage = page, quiet = false) {
     if (!activeOrg) return;
     quiet ? setRefreshing(true) : setLoading(true);
     setError(null);
-    try { setProducts(await ProductModel.getAll(activeOrg.id)); }
-    catch (err) { setError((err as Error).message); }
-    finally { quiet ? setRefreshing(false) : setLoading(false); }
+    try {
+      const { data, total: t } = await ProductModel.getPage(activeOrg.id, targetPage, PAGE_SIZE);
+      setProducts(data);
+      setTotal(t);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      quiet ? setRefreshing(false) : setLoading(false);
+    }
   }
 
-  useEffect(() => { fetchProducts(); }, [activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
+  function goToPage(p: number) {
+    const clamped = Math.max(1, Math.min(p, totalPages));
+    setPage(clamped);
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', String(clamped));
+    window.history.replaceState(null, '', `?${params.toString()}`);
+    exitSelectMode();
+  }
+
+  useEffect(() => { fetchProducts(page); }, [activeOrg, page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    return () => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('page');
+      const next = params.toString();
+      window.history.replaceState(null, '', next ? `?${next}` : window.location.pathname);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeOrg) return;
@@ -301,9 +335,13 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     setBulkLoading(true);
     try {
       await ProductModel.bulkDelete(Array.from(selectedIds));
-      setProducts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
       setBulkDeleteModal(false);
       exitSelectMode();
+      const remaining = total - selectedIds.size;
+      const newTotalPages = Math.max(1, Math.ceil(remaining / PAGE_SIZE));
+      const targetPage = Math.min(page, newTotalPages);
+      if (targetPage !== page) goToPage(targetPage);
+      else await fetchProducts(page, true);
     } catch { /* noop */ }
     setBulkLoading(false);
   }
@@ -313,8 +351,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     const original = products.find((p) => p.id === id);
     if (!original) return;
     try {
-      const copy = await ProductModel.duplicate(original, user.id);
-      setProducts((prev) => [copy, ...prev]);
+      await ProductModel.duplicate(original, user.id);
+      await fetchProducts(page, true);
     } catch { /* noop */ }
   }
 
@@ -346,7 +384,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
             <h1 className="text-ds-text font-bold text-xl tracking-tight">Products</h1>
             <p className="text-ds-muted text-sm mt-0.5">
               {activeTab === 'listed'
-                ? loading ? 'Loading…' : `${products.length} item${products.length !== 1 ? 's' : ''} in your catalog`
+                ? loading ? 'Loading…' : `${total} item${total !== 1 ? 's' : ''} in your catalog`
                 : shopifyLoading ? 'Loading…' : `${shopifyProducts.length} product${shopifyProducts.length !== 1 ? 's' : ''} from Shopify`}
             </p>
           </div>
@@ -384,7 +422,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
             Select
           </button>
           <button
-            onClick={() => fetchProducts(true)}
+            onClick={() => fetchProducts(page, true)}
             disabled={refreshing || loading}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2 disabled:opacity-50 transition-all font-medium"
           >
@@ -485,12 +523,27 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                     selected={selectedIds.has(p.id)}
                     onToggle={toggleSelect}
                     selectMode={selectMode}
-                    onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
+                    onDelete={async () => {
+                      const remaining = total - 1;
+                      const newTotalPages = Math.max(1, Math.ceil(remaining / PAGE_SIZE));
+                      const targetPage = Math.min(page, newTotalPages);
+                      if (targetPage !== page) goToPage(targetPage);
+                      else await fetchProducts(page, true);
+                    }}
                     onEdit={(id) => onNavigate('products-edit-item', id)}
                     onDuplicate={handleDuplicate}
                   />
                 ))}
               </div>
+
+              {totalPages > 1 && (
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
+                  <p className="text-ds-muted text-[11px]">
+                    Page {page} of {totalPages} · {total} total
+                  </p>
+                </div>
+              )}
             </>
           )}
         </>
@@ -501,7 +554,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
         onClose={() => setCsvModalOpen(false)}
         onImported={() => {
           setCsvModalOpen(false);
-          fetchProducts(true);
+          goToPage(1);
         }}
       />
 

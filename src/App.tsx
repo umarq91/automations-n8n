@@ -78,6 +78,11 @@ function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    document.body.classList.toggle('overflow-hidden', sidebarOpen);
+    return () => document.body.classList.remove('overflow-hidden');
+  }, [sidebarOpen]);
+
+  useEffect(() => {
     const onPop = () => {
       const section = readSectionFromUrl();
       const target = canAccess(role, section) ? section : getDefaultSection(role);

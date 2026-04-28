@@ -12,6 +12,26 @@ export class WorkflowLogModel {
     return data ?? [];
   }
 
+  static async getPage(
+    organizationId: string,
+    page: number,
+    pageSize: number,
+    type?: string
+  ): Promise<{ data: WorkflowLog[]; total: number }> {
+    const from = (page - 1) * pageSize;
+    const to   = from + pageSize - 1;
+    let query = supabase
+      .from('workflow_logs')
+      .select('*', { count: 'exact' })
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (type && type !== 'all') query = query.eq('type', type);
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: data ?? [], total: count ?? 0 };
+  }
+
   static async getRecent(organizationId: string, limit = 30): Promise<WorkflowLog[]> {
     const { data, error } = await supabase
       .from('workflow_logs')

@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CreditModel } from '../../models/CreditModel';
 import type { OrganizationCredits, CreditUsageLogWithProduct, CreditType } from '../../lib/supabase/types';
 import { formatDate, formatDateTime } from '../../lib/utils';
+import { Pagination } from '../../components/ui/pagination';
+import { PAGE_SIZE } from '../../constants/pagination';
 
 const CREDIT_META: Record<CreditType, { label: string; icon: typeof Layers; gradient: string; iconColor: string }> = {
   listing:      { label: 'Listing Credits',      icon: Layers,        gradient: 'gradient-indigo',  iconColor: 'text-ds-accent'   },
@@ -54,12 +56,21 @@ function CreditStatCard({ type, used, total }: { type: CreditType; used: number;
 
 export default function CreditsSection() {
   const { activeOrg } = useAuth();
-  const [credits, setCredits] = useState<OrganizationCredits | null>(null);
-  const [logs, setLogs] = useState<CreditUsageLogWithProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [credits,     setCredits]     = useState<OrganizationCredits | null>(null);
+  const [logs,        setLogs]        = useState<CreditUsageLogWithProduct[]>([]);
+  const [logsTotal,   setLogsTotal]   = useState(0);
+  const [loading,     setLoading]     = useState(true);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
 
-  async function load() {
+  const [page, setPage] = useState<number>(() => {
+    const p = parseInt(new URLSearchParams(window.location.search).get('credits_page') ?? '1', 10);
+    return isNaN(p) || p < 1 ? 1 : p;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(logsTotal / PAGE_SIZE));
+
+  async function loadCredits() {
     if (!activeOrg) return;
     setLoading(true);
     setError(null);
@@ -69,13 +80,41 @@ export default function CreditsSection() {
       setLoading(false);
       return;
     }
-    const l = await CreditModel.getLogs(activeOrg.id, c.period_start);
     setCredits(c);
-    setLogs(l);
     setLoading(false);
+    await fetchLogs(page, c.period_start);
   }
 
-  useEffect(() => { load(); }, [activeOrg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function fetchLogs(targetPage = page, since?: string) {
+    if (!activeOrg) return;
+    setLogsLoading(true);
+    const { data, total } = await CreditModel.getLogsPage(
+      activeOrg.id, targetPage, PAGE_SIZE, since
+    );
+    setLogs(data);
+    setLogsTotal(total);
+    setLogsLoading(false);
+  }
+
+  function goToPage(p: number) {
+    const clamped = Math.max(1, Math.min(p, totalPages));
+    setPage(clamped);
+    const params = new URLSearchParams(window.location.search);
+    params.set('credits_page', String(clamped));
+    window.history.replaceState(null, '', `?${params.toString()}`);
+    fetchLogs(clamped, credits?.period_start);
+  }
+
+  useEffect(() => { loadCredits(); }, [activeOrg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    return () => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('credits_page');
+      const next = params.toString();
+      window.history.replaceState(null, '', next ? `?${next}` : window.location.pathname);
+    };
+  }, []);
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto animate-fade-in">
@@ -93,7 +132,7 @@ export default function CreditsSection() {
             </p>
           </div>
         </div>
-        <button onClick={load} className="btn-ghost flex items-center gap-2 text-sm" disabled={loading}>
+        <button onClick={loadCredits} className="btn-ghost flex items-center gap-2 text-sm" disabled={loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
         </button>
@@ -121,46 +160,66 @@ export default function CreditsSection() {
           </div>
 
           <div className="card overflow-hidden">
-            <div className="px-5 py-4 border-b border-ds-borderSoft">
-              <h2 className="text-ds-text text-sm font-semibold">Usage Log</h2>
-              <p className="text-ds-muted text-xs mt-0.5">All deductions in the current period</p>
+            <div className="px-5 py-4 border-b border-ds-borderSoft flex items-center justify-between">
+              <div>
+                <h2 className="text-ds-text text-sm font-semibold">Usage Log</h2>
+                <p className="text-ds-muted text-xs mt-0.5">
+                  {logsTotal > 0 ? `${logsTotal} deduction${logsTotal !== 1 ? 's' : ''} this period` : 'All deductions in the current period'}
+                </p>
+              </div>
             </div>
-            {logs.length === 0 ? (
+
+            {logsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : logs.length === 0 ? (
               <div className="px-5 py-10 text-center">
                 <p className="text-ds-muted text-sm">No usage recorded yet this period.</p>
               </div>
             ) : (
-              <div className="divide-y divide-ds-borderSoft">
-                {logs.map((log) => {
-                  const meta = CREDIT_META[log.credit_type];
-                  const Icon = meta.icon;
-                  const productTitle = log.product?.title ?? null;
-                  const adminUrl = log.product?.shopify_admin_url ?? log.product_admin_url ?? null;
-                  return (
-                    <div key={log.id} className="px-5 py-3 flex items-center gap-4 hover:bg-ds-hover transition-colors">
-                      <div className={`w-7 h-7 rounded-lg ${meta.gradient} flex items-center justify-center flex-shrink-0`}>
-                        <Icon size={12} className="text-white" />
+              <>
+                <div className="divide-y divide-ds-borderSoft">
+                  {logs.map((log) => {
+                    const meta = CREDIT_META[log.credit_type];
+                    const Icon = meta.icon;
+                    const productTitle = log.product?.title ?? null;
+                    const adminUrl = log.product?.shopify_admin_url ?? log.product_admin_url ?? null;
+                    return (
+                      <div key={log.id} className="px-5 py-3 flex items-center gap-4 hover:bg-ds-hover transition-colors">
+                        <div className={`w-7 h-7 rounded-lg ${meta.gradient} flex items-center justify-center flex-shrink-0`}>
+                          <Icon size={12} className="text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-ds-text text-sm font-medium">{meta.label}</p>
+                          {productTitle && <p className="text-ds-text2 text-xs truncate font-medium">{productTitle}</p>}
+                          {log.note && <p className="text-ds-muted text-xs truncate">{log.note}</p>}
+                          {adminUrl ? (
+                            <a href={adminUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-ds-accent hover:text-ds-accentHover truncate block transition-colors">
+                              View in Shopify Admin ↗
+                            </a>
+                          ) : (
+                            <p className="text-ds-muted text-xs italic">No admin URL</p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-red-400 text-sm font-semibold">−{log.amount}</p>
+                          <p className="text-ds-muted text-xs">{formatDateTime(log.created_at)}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-ds-text text-sm font-medium">{meta.label}</p>
-                        {productTitle && <p className="text-ds-text2 text-xs truncate font-medium">{productTitle}</p>}
-                        {log.note && <p className="text-ds-muted text-xs truncate">{log.note}</p>}
-                        {adminUrl ? (
-                          <a href={adminUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-ds-accent hover:text-ds-accentHover truncate block transition-colors">
-                            View in Shopify Admin ↗
-                          </a>
-                        ) : (
-                          <p className="text-ds-muted text-xs italic">No admin URL</p>
-                        )}
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-red-400 text-sm font-semibold">−{log.amount}</p>
-                        <p className="text-ds-muted text-xs">{formatDateTime(log.created_at)}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="px-5 py-4 border-t border-ds-borderSoft flex flex-col items-center gap-2">
+                    <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
+                    <p className="text-ds-muted text-[11px]">
+                      Page {page} of {totalPages} · {logsTotal} total
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>

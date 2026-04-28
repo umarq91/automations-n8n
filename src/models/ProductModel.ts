@@ -23,6 +23,24 @@ export class ProductModel {
     return data ?? [];
   }
 
+  static async getPage(
+    organizationId: string,
+    page: number,
+    pageSize: number
+  ): Promise<{ data: Product[]; total: number }> {
+    const from = (page - 1) * pageSize;
+    const to   = from + pageSize - 1;
+    const { data, error, count } = await supabase
+      .from('products')
+      .select('*', { count: 'exact' })
+      .eq('organization_id', organizationId)
+      .eq('source', 'manual')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    return { data: data ?? [], total: count ?? 0 };
+  }
+
   static async getAllShopify(organizationId: string): Promise<Product[]> {
     const { data, error } = await supabase
       .from('products')

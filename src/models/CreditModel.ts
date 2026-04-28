@@ -31,6 +31,26 @@ export class CreditModel {
     return data as CreditUsageLogWithProduct[];
   }
 
+  static async getLogsPage(
+    orgId: string,
+    page: number,
+    pageSize: number,
+    since?: string
+  ): Promise<{ data: CreditUsageLogWithProduct[]; total: number }> {
+    const from = (page - 1) * pageSize;
+    const to   = from + pageSize - 1;
+    let query = supabase
+      .from('credit_usage_logs')
+      .select('*, product:products(id, title, shopify_admin_url, shopify_product_url, photo_url)', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (since) query = query.gte('created_at', since);
+    const { data, error, count } = await query;
+    if (error) return { data: [], total: 0 };
+    return { data: data as CreditUsageLogWithProduct[], total: count ?? 0 };
+  }
+
   static async init(orgId: string, plan: string): Promise<void> {
     const defaults = PLAN_DEFAULTS[plan] ?? PLAN_DEFAULTS.free;
     await supabase.from('organization_credits').upsert({
