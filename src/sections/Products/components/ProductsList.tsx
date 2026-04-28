@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, PackagePlus, Tag, Ruler, Layers, DollarSign,
   ExternalLink, Trash2, Loader2, Pencil, ShoppingBag,
   RefreshCw, AlertTriangle, Plug, Boxes, FileUp, X,
+  Check, CheckSquare,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
@@ -17,6 +19,24 @@ import CsvImportModal from './CsvImportModal';
 import type { ActiveSection } from '../../../components/layout/Sidebar';
 
 type TabId = 'listed' | 'shopify';
+
+const LOCKED_STATUSES = new Set(['IMPORTING', 'READY_TO_IMPORT', 'IMPORTED']);
+
+function DarkCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      className={`w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center shrink-0 transition-all duration-150 ${
+        checked
+          ? 'bg-ds-accent border-ds-accent shadow-[0_0_0_3px_rgba(77,163,255,0.15)]'
+          : 'bg-ds-surface2 border-ds-border hover:border-ds-accent/50'
+      }`}
+    >
+      {checked && <Check size={11} className="text-white" strokeWidth={3} />}
+    </button>
+  );
+}
 
 function ProductPhoto({ url }: { url: string | null }) {
   if (!url) {
@@ -33,12 +53,13 @@ function ProductPhoto({ url }: { url: string | null }) {
   );
 }
 
-function ProductCard({ product, onDelete, onEdit, selected, onToggle }: {
+function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode }: {
   product: Product;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   selected: boolean;
   onToggle: (id: string) => void;
+  selectMode: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -51,17 +72,29 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle }: {
   }
 
   return (
-    <div className={`card flex overflow-hidden transition-colors min-h-[160px] ${selected ? 'border-ds-accent/40 bg-ds-accent/[0.03]' : 'hover:border-ds-border/80'}`}>
-      <div className="flex items-start justify-center pt-4 px-3 shrink-0">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggle(product.id)}
-          onClick={(e) => e.stopPropagation()}
-          className="w-4 h-4 cursor-pointer accent-blue-500 rounded"
-        />
-      </div>
+    <div
+      className={`card flex overflow-hidden transition-colors min-h-[160px] ${
+        selected ? 'border-ds-accent/40 bg-ds-accent/[0.03]' : 'hover:border-ds-border/80'
+      }`}
+    >
+      <AnimatePresence initial={false}>
+        {selectMode && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 'auto', opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            className="flex items-start justify-center pt-[18px] overflow-hidden shrink-0"
+          >
+            <div className="px-3">
+              <DarkCheckbox checked={selected} onChange={() => onToggle(product.id)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ProductPhoto url={product.photo_url ?? null} />
+
       <div className="flex-1 px-5 py-4 flex flex-col justify-between min-w-0">
         <div>
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -119,14 +152,18 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle }: {
             {product.supplier_link && <a href={product.supplier_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"><ExternalLink size={11} /> Supplier</a>}
             {product.shopify_product_url && <a href={product.shopify_product_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"><ExternalLink size={11} /> Shopify</a>}
             {product.shopify_admin_url && <a href={product.shopify_admin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"><ExternalLink size={11} /> Admin</a>}
-            <button onClick={() => onEdit(product.id)} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent transition-all">
-              <Pencil size={11} />Edit
-            </button>
-            <button onClick={handleDelete} onBlur={() => setConfirmDelete(false)} disabled={deleting}
-              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${confirmDelete ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'bg-transparent border-transparent text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400'}`}>
-              {deleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-              {confirmDelete ? 'Confirm?' : 'Delete'}
-            </button>
+            {!LOCKED_STATUSES.has(product.status) && (
+              <>
+                <button onClick={() => onEdit(product.id)} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent transition-all">
+                  <Pencil size={11} />Edit
+                </button>
+                <button onClick={handleDelete} onBlur={() => setConfirmDelete(false)} disabled={deleting}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${confirmDelete ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'bg-transparent border-transparent text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400'}`}>
+                  {deleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                  {confirmDelete ? 'Confirm?' : 'Delete'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -155,6 +192,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState<string | null>(null);
 
+  const [refreshing,        setRefreshing]        = useState(false);
+  const [selectMode,        setSelectMode]        = useState(false);
   const [selectedIds,       setSelectedIds]       = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkLoading,       setBulkLoading]       = useState(false);
@@ -168,14 +207,16 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [syncing,         setSyncing]         = useState(false);
   const [syncMessage,     setSyncMessage]     = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
-  useEffect(() => {
+  async function fetchProducts(quiet = false) {
     if (!activeOrg) return;
-    setLoading(true);
-    ProductModel.getAll(activeOrg.id)
-      .then(setProducts)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [activeOrg]);
+    quiet ? setRefreshing(true) : setLoading(true);
+    setError(null);
+    try { setProducts(await ProductModel.getAll(activeOrg.id)); }
+    catch (err) { setError((err as Error).message); }
+    finally { quiet ? setRefreshing(false) : setLoading(false); }
+  }
+
+  useEffect(() => { fetchProducts(); }, [activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!activeOrg) return;
@@ -221,7 +262,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     setConfirmBulkDelete(false);
   }
 
-  function clearSelection() {
+  function exitSelectMode() {
+    setSelectMode(false);
     setSelectedIds(new Set());
     setConfirmBulkDelete(false);
   }
@@ -232,7 +274,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     try {
       await ProductModel.bulkDelete(Array.from(selectedIds));
       setProducts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
-      clearSelection();
+      exitSelectMode();
     } catch { /* noop */ }
     setBulkLoading(false);
   }
@@ -243,16 +285,18 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     try {
       await ProductModel.bulkUpdateStatus(Array.from(selectedIds), status);
       setProducts((prev) => prev.map((p) => selectedIds.has(p.id) ? { ...p, status: status as ProductStatus } : p));
-      clearSelection();
+      exitSelectMode();
     } catch { /* noop */ }
     setBulkLoading(false);
   }
 
   const listedCount  = loading ? null : products.length;
   const shopifyCount = shopifyLoading ? null : shopifyProducts.length;
+  const allSelected  = products.length > 0 && selectedIds.size === products.length;
 
   return (
     <div className="animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center shadow-accent-glow">
@@ -267,13 +311,36 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
             </p>
           </div>
         </div>
+
         {activeTab === 'listed' ? (
           <div className="flex items-center gap-2">
+            {!loading && !error && products.length > 0 && (
+              <button
+                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                  selectMode
+                    ? 'bg-ds-accent/10 border-ds-accent/30 text-ds-accent'
+                    : 'border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2'
+                }`}
+              >
+                <CheckSquare size={13} />
+                Select
+              </button>
+            )}
+            <button
+              onClick={() => fetchProducts(true)}
+              disabled={refreshing || loading}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ds-border text-ds-muted hover:border-ds-border/80 hover:text-ds-text2 disabled:opacity-50 transition-all font-medium"
+              title="Refresh"
+            >
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              Refresh
+            </button>
             <Button variant="secondary" size="default" onClick={() => setCsvModalOpen(true)}>
               <FileUp size={14} />Import CSV
             </Button>
             <Button variant="primary" size="default" onClick={() => onNavigate('products-add-item')}>
-              <PackagePlus size={14} />Add Item
+              <PackagePlus size={14} />List Product
             </Button>
           </div>
         ) : (
@@ -284,9 +351,10 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
         )}
       </div>
 
+      {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-ds-border mb-6">
-        <TabButton active={activeTab === 'listed'} onClick={() => { setActiveTab('listed'); clearSelection(); }} icon={<Package size={13} />} label="Listed Products" count={listedCount} />
-        <TabButton active={activeTab === 'shopify'} onClick={() => { setActiveTab('shopify'); clearSelection(); }} icon={<ShoppingBag size={13} />} label="Shopify Products" count={shopifyCount} />
+        <TabButton active={activeTab === 'listed'} onClick={() => { setActiveTab('listed'); exitSelectMode(); }} icon={<Package size={13} />} label="Listed Products" count={listedCount} />
+        <TabButton active={activeTab === 'shopify'} onClick={() => { setActiveTab('shopify'); exitSelectMode(); }} icon={<ShoppingBag size={13} />} label="Shopify Products" count={shopifyCount} />
       </div>
 
       {activeTab === 'listed' && (
@@ -301,44 +369,72 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
               <Button variant="primary" onClick={() => onNavigate('products-add-item')}><PackagePlus size={14} />Add your first item</Button>
             </div>
           )}
+
           {!loading && !error && products.length > 0 && (
             <>
-              {selectedIds.size > 0 && (
-                <div className="flex items-center gap-3 px-4 py-2.5 mb-4 rounded-xl border border-ds-accent/25 bg-ds-accent/5 flex-wrap">
-                  <span className="text-ds-text text-sm font-medium shrink-0">{selectedIds.size} selected</span>
-                  <div className="h-4 w-px bg-ds-border" />
-                  <button
-                    onClick={handleSelectAll}
-                    disabled={bulkLoading}
-                    className="text-xs text-ds-accent hover:text-ds-accentHover transition-colors disabled:opacity-50 shrink-0"
+              {/* Bulk action bar — slides in when selectMode active */}
+              <AnimatePresence initial={false}>
+                {selectMode && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                    animate={{ height: 'auto', opacity: 1, marginBottom: 16 }}
+                    exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                    style={{ overflow: 'hidden' }}
                   >
-                    {selectedIds.size === products.length ? 'Deselect all' : 'Select all'}
-                  </button>
-                  <div className="h-4 w-px bg-ds-border" />
-                  <Select onValueChange={handleBulkStatus} disabled={bulkLoading}>
-                    <SelectTrigger className="w-40 shrink-0">
-                      <SelectValue placeholder="Change status…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(PRODUCT_STATUS).map(([k]) => (
-                        <SelectItem key={k} value={k}>{PRODUCT_STATUS_LABEL[k]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <button
-                    onClick={handleBulkDelete}
-                    onBlur={() => setConfirmBulkDelete(false)}
-                    disabled={bulkLoading}
-                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all disabled:opacity-50 shrink-0 ${confirmBulkDelete ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'border-ds-border text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400'}`}
-                  >
-                    {bulkLoading ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                    {confirmBulkDelete ? `Confirm delete ${selectedIds.size}?` : `Delete ${selectedIds.size}`}
-                  </button>
-                  <button onClick={clearSelection} className="ml-auto flex items-center gap-1 text-xs text-ds-muted hover:text-ds-text2 transition-colors shrink-0">
-                    <X size={12} />Clear
-                  </button>
-                </div>
-              )}
+                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-ds-border bg-ds-surface2/60 flex-wrap">
+                      {/* Select all checkbox + label */}
+                      <div className="flex items-center gap-2.5">
+                        <DarkCheckbox checked={allSelected} onChange={handleSelectAll} />
+                        <span className="text-ds-text2 text-xs font-medium">
+                          {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+                        </span>
+                      </div>
+
+                      <AnimatePresence initial={false}>
+                        {selectedIds.size > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: 'auto' }}
+                            exit={{ opacity: 0, width: 0 }}
+                            transition={{ duration: 0.16 }}
+                            className="flex items-center gap-3 overflow-hidden"
+                          >
+                            <div className="h-4 w-px bg-ds-border shrink-0" />
+                            <Select onValueChange={handleBulkStatus} disabled={bulkLoading}>
+                              <SelectTrigger className="w-40 shrink-0 h-7 text-xs">
+                                <SelectValue placeholder="Change status…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(PRODUCT_STATUS).map(([k]) => (
+                                  <SelectItem key={k} value={k}>{PRODUCT_STATUS_LABEL[k]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <button
+                              onClick={handleBulkDelete}
+                              onBlur={() => setConfirmBulkDelete(false)}
+                              disabled={bulkLoading}
+                              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all disabled:opacity-50 shrink-0 ${confirmBulkDelete ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'border-ds-border text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400'}`}
+                            >
+                              {bulkLoading ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                              {confirmBulkDelete ? `Confirm delete ${selectedIds.size}?` : `Delete ${selectedIds.size}`}
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <button
+                        onClick={exitSelectMode}
+                        className="ml-auto flex items-center gap-1 text-xs text-ds-muted hover:text-ds-text2 transition-colors shrink-0"
+                      >
+                        <X size={12} />Done
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="space-y-3">
                 {products.map((p) => (
                   <ProductCard
@@ -346,6 +442,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                     product={p}
                     selected={selectedIds.has(p.id)}
                     onToggle={toggleSelect}
+                    selectMode={selectMode}
                     onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
                     onEdit={(id) => onNavigate('products-edit-item', id)}
                   />
@@ -361,8 +458,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
         onClose={() => setCsvModalOpen(false)}
         onImported={() => {
           setCsvModalOpen(false);
-          if (!activeOrg) return;
-          ProductModel.getAll(activeOrg.id).then(setProducts).catch(() => null);
+          fetchProducts(true);
         }}
       />
 

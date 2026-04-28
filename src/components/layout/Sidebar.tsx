@@ -23,7 +23,7 @@ const MAINTENANCE_MESSAGE = 'We are currently performing scheduled maintenance. 
 
 const productSubItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
   { id: 'products-list',    label: 'Products', icon: Package     },
-  { id: 'products-add-item', label: 'Add Item', icon: PackagePlus },
+  { id: 'products-add-item', label: 'List Product', icon: PackagePlus },
 ];
 
 export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
