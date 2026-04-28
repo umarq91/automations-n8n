@@ -4,7 +4,7 @@ import {
   Package, PackagePlus, Tag, Ruler, Layers, DollarSign,
   ExternalLink, Trash2, Loader2, Pencil, ShoppingBag,
   RefreshCw, AlertTriangle, Plug, Boxes, FileUp, X,
-  Check, CheckSquare,
+  Check, CheckSquare, Copy,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
@@ -16,6 +16,8 @@ import { Button } from '../../../components/ui/button';
 import { formatRelative } from '../../../lib/utils';
 import ShopifyProductCard from './ShopifyProductCard';
 import CsvImportModal from './CsvImportModal';
+import ConfirmTextModal from '../../../components/shared/ConfirmTextModal';
+import { CONFIRM_PHRASES } from '../../../constants/confirmations';
 import type { ActiveSection } from '../../../components/layout/Sidebar';
 
 type TabId = 'listed' | 'shopify';
@@ -53,22 +55,30 @@ function ProductPhoto({ url }: { url: string | null }) {
   );
 }
 
-function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode }: {
+function ProductCard({ product, onDelete, onEdit, onDuplicate, selected, onToggle, selectMode }: {
   product: Product;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
+  onDuplicate: (id: string) => Promise<void>;
   selected: boolean;
   onToggle: (id: string) => void;
   selectMode: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   async function handleDelete() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeleting(true);
     try { await ProductModel.delete(product.id); onDelete(product.id); }
     catch { setDeleting(false); setConfirmDelete(false); }
+  }
+
+  async function handleDuplicate() {
+    setDuplicating(true);
+    try { await onDuplicate(product.id); }
+    finally { setDuplicating(false); }
   }
 
   return (
@@ -172,6 +182,10 @@ function ProductCard({ product, onDelete, onEdit, selected, onToggle, selectMode
             {product.shopify_admin_url && <a href={product.shopify_admin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"><ExternalLink size={11} /> Admin</a>}
             {!LOCKED_STATUSES.has(product.status) && (
               <>
+                <button onClick={handleDuplicate} disabled={duplicating} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-surface2 hover:border-ds-border hover:text-ds-text2 transition-all disabled:opacity-50">
+                  {duplicating ? <Loader2 size={11} className="animate-spin" /> : <Copy size={11} />}
+                  Duplicate
+                </button>
                 <button onClick={() => onEdit(product.id)} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border border-transparent text-ds-muted hover:bg-ds-accent/10 hover:border-ds-accent/20 hover:text-ds-accent transition-all">
                   <Pencil size={11} />Edit
                 </button>
@@ -203,7 +217,7 @@ interface ProductsListProps {
 }
 
 export default function ProductsList({ onNavigate }: ProductsListProps) {
-  const { activeOrg } = useAuth();
+  const { activeOrg, user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('listed');
 
   const [products,          setProducts]          = useState<Product[]>([]);
@@ -213,7 +227,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [refreshing,        setRefreshing]        = useState(false);
   const [selectMode,        setSelectMode]        = useState(false);
   const [selectedIds,       setSelectedIds]       = useState<Set<string>>(new Set());
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkDeleteModal,   setBulkDeleteModal]   = useState(false);
   const [bulkLoading,       setBulkLoading]       = useState(false);
 
   const [csvModalOpen,    setCsvModalOpen]    = useState(false);
@@ -268,7 +282,6 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-    setConfirmBulkDelete(false);
   }
 
   function handleSelectAll() {
@@ -277,24 +290,32 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     } else {
       setSelectedIds(new Set(products.map((p) => p.id)));
     }
-    setConfirmBulkDelete(false);
   }
 
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedIds(new Set());
-    setConfirmBulkDelete(false);
   }
 
   async function handleBulkDelete() {
-    if (!confirmBulkDelete) { setConfirmBulkDelete(true); return; }
     setBulkLoading(true);
     try {
       await ProductModel.bulkDelete(Array.from(selectedIds));
       setProducts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+      setBulkDeleteModal(false);
       exitSelectMode();
     } catch { /* noop */ }
     setBulkLoading(false);
+  }
+
+  async function handleDuplicate(id: string) {
+    if (!user) return;
+    const original = products.find((p) => p.id === id);
+    if (!original) return;
+    try {
+      const copy = await ProductModel.duplicate(original, user.id);
+      setProducts((prev) => [copy, ...prev]);
+    } catch { /* noop */ }
   }
 
   async function handleBulkStatus(status: string) {
@@ -434,13 +455,12 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                               </SelectContent>
                             </Select>
                             <button
-                              onClick={handleBulkDelete}
-                              onBlur={() => setConfirmBulkDelete(false)}
+                              onClick={() => setBulkDeleteModal(true)}
                               disabled={bulkLoading}
-                              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all disabled:opacity-50 shrink-0 ${confirmBulkDelete ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'border-ds-border text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400'}`}
+                              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ds-border text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all disabled:opacity-50 shrink-0"
                             >
-                              {bulkLoading ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                              {confirmBulkDelete ? `Confirm delete ${selectedIds.size}?` : `Delete ${selectedIds.size}`}
+                              <Trash2 size={11} />
+                              Delete {selectedIds.size}
                             </button>
                           </motion.div>
                         )}
@@ -467,6 +487,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                     selectMode={selectMode}
                     onDelete={(id) => setProducts((prev) => prev.filter((x) => x.id !== id))}
                     onEdit={(id) => onNavigate('products-edit-item', id)}
+                    onDuplicate={handleDuplicate}
                   />
                 ))}
               </div>
@@ -482,6 +503,16 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
           setCsvModalOpen(false);
           fetchProducts(true);
         }}
+      />
+
+      <ConfirmTextModal
+        open={bulkDeleteModal}
+        onClose={() => setBulkDeleteModal(false)}
+        onConfirm={handleBulkDelete}
+        title={`Delete ${selectedIds.size} product${selectedIds.size !== 1 ? 's' : ''}?`}
+        description="This action is permanent and cannot be undone. All selected products will be removed from your catalog."
+        phrase={CONFIRM_PHRASES.BULK_DELETE}
+        confirmLabel={`Delete ${selectedIds.size} product${selectedIds.size !== 1 ? 's' : ''}`}
       />
 
       {activeTab === 'shopify' && (

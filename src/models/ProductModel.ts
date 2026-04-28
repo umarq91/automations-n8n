@@ -125,6 +125,29 @@ export class ProductModel {
     return data?.length ?? 0;
   }
 
+  static async duplicate(product: Product, userId: string): Promise<Product> {
+    const { id, created_at, updated_at, shopify_id, shopify_status, metadata, ...rest } = product;
+    void id; void created_at; void updated_at; void shopify_id; void shopify_status; void metadata;
+    const payload = {
+      ...rest,
+      title: `${product.title} (Copy)`,
+      status: 'NOT_IMPORTED' as Product['status'],
+      source: 'manual' as const,
+      shopify_product_url: null,
+      shopify_admin_url: null,
+      photo_url: null,
+      to_optimize: false,
+      created_by: userId,
+    };
+    const { data, error } = await supabase
+      .from('products')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   static async bulkDelete(ids: string[]): Promise<void> {
     const { error } = await supabase.from('products').delete().in('id', ids);
     if (error) throw error;
