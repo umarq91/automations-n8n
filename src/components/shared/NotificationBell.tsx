@@ -1,55 +1,84 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle2, XCircle, Package, ExternalLink, X, CheckCheck, Activity, Loader2 } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, Package, ExternalLink, X, CheckCheck, Activity, Loader2, Link2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRealtimeCreditLogs } from '../../hooks/useRealtimeCreditLogs';
 import { formatRelative } from '../../lib/utils';
 import type { WorkflowNotification } from '../../hooks/useRealtimeCreditLogs';
 
 function NotificationItem({ n }: { n: WorkflowNotification }) {
-  const isSuccess = n.type === 'success';
-  const isError   = n.type === 'error';
+  const isSuccess  = n.type === 'success';
+  const isError    = n.type === 'error';
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className={`flex items-start gap-3 px-4 py-3 border-b border-ds-borderSoft last:border-0 transition-colors ${n._read ? '' : 'bg-ds-accent/[0.04]'}`}>
-      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isSuccess ? 'bg-emerald-500/10' : isError ? 'bg-red-500/10' : 'bg-ds-surface2'}`}>
-        {isSuccess && <CheckCircle2 size={13} className="text-emerald-400" />}
-        {isError   && <XCircle      size={13} className="text-red-400" />}
-        {!isSuccess && !isError && <Activity size={13} className="text-ds-muted" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-0.5">
-          <span className={`text-xs font-semibold ${isSuccess ? 'text-emerald-400' : isError ? 'text-red-400' : 'text-ds-text2'}`}>
-            {isSuccess ? 'Workflow succeeded' : isError ? 'Workflow failed' : 'Workflow executed'}
-          </span>
-          <span className="text-[10px] text-ds-muted shrink-0">
-            {formatRelative(n.created_at) ?? new Date(n.created_at).toLocaleDateString()}
-          </span>
+    <div className={`px-4 py-3.5 border-b border-ds-borderSoft last:border-0 transition-colors ${n._read ? '' : 'bg-ds-accent/[0.03]'}`}>
+      <div className="flex items-start gap-3">
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+          isSuccess ? 'bg-emerald-500/10' : isError ? 'bg-red-500/10' : 'bg-ds-surface2'
+        }`}>
+          {isSuccess && <CheckCircle2 size={13} className="text-emerald-400" />}
+          {isError   && <XCircle      size={13} className="text-red-400" />}
+          {!isSuccess && !isError && <Activity size={13} className="text-ds-muted" />}
         </div>
-        {n.workflow_name && (
-          <p className="text-xs text-ds-text2 truncate font-medium">{n.workflow_name}</p>
-        )}
-        {n.product_title && (
-          <p className="text-[11px] text-ds-muted truncate flex items-center gap-1 mt-0.5">
-            <Package size={9} className="shrink-0" />{n.product_title}
-          </p>
-        )}
-        {isError && n.message && (
-          <p className="text-[11px] text-red-400/80 truncate mt-0.5">{n.message}</p>
-        )}
-        {n.execution_url && (
-          <a
-            href={n.execution_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-ds-accent hover:text-ds-accentHover transition-colors mt-1"
-          >
-            <ExternalLink size={9} />View execution
-          </a>
+
+        <div className="flex-1 min-w-0">
+          {/* Message — primary + time */}
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className={`text-xs font-semibold leading-tight text-left min-w-0 ${expanded ? '' : 'truncate'} ${isError ? 'text-red-300' : 'text-ds-text'}`}
+              title={expanded ? undefined : (n.message ?? undefined)}
+            >
+              {n.message ?? 'No message'}
+            </button>
+            <span className="text-[10px] text-ds-muted shrink-0 mt-px">
+              {formatRelative(n.created_at) ?? new Date(n.created_at).toLocaleDateString()}
+            </span>
+          </div>
+
+          {/* Flow name */}
+          {n.workflow_name && (
+            <p className="text-[11px] text-ds-muted mb-1.5">
+              <span className="font-medium text-ds-text2">FLOW:</span> {n.workflow_name}
+            </p>
+          )}
+
+          {/* Product + links */}
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {n.product_title && (
+              n.product_link ? (
+                <a
+                  href={n.product_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] text-ds-accent hover:text-ds-accentHover bg-ds-accent/5 border border-ds-accent/20 px-1.5 py-0.5 rounded-md transition-colors"
+                >
+                  <Package size={9} />{n.product_title}<Link2 size={8} className="opacity-60" />
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] text-ds-muted bg-ds-surface2 border border-ds-borderSoft px-1.5 py-0.5 rounded-md">
+                  <Package size={9} />{n.product_title}
+                </span>
+              )
+            )}
+            {n.execution_url && (
+              <a
+                href={n.execution_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] text-ds-muted hover:text-ds-text2 transition-colors"
+              >
+                <ExternalLink size={9} />Execution
+              </a>
+            )}
+          </div>
+        </div>
+
+        {!n._read && (
+          <div className="w-1.5 h-1.5 rounded-full bg-ds-accent shrink-0 mt-2" />
         )}
       </div>
-      {!n._read && (
-        <div className="w-1.5 h-1.5 rounded-full bg-ds-accent shrink-0 mt-2" />
-      )}
     </div>
   );
 }

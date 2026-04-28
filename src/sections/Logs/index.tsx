@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Activity, CheckCircle2, XCircle, ExternalLink,
-  Package, GitBranch, Clock, Cpu, ChevronRight,
+  Package, Clock, Cpu, Link2,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { WorkflowLogModel } from '../../models/WorkflowLogModel';
@@ -15,87 +15,104 @@ function LogCard({ log }: { log: WorkflowLog }) {
   const isError   = log.type === 'error';
 
   return (
-    <div className={`card overflow-hidden border-l-2 transition-colors hover:border-l-2 ${isSuccess ? 'border-l-emerald-500/60 hover:border-l-emerald-500' : isError ? 'border-l-red-500/60 hover:border-l-red-500' : 'border-l-ds-border'}`}>
-      <div className="px-5 py-4">
-        {/* Top row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {isSuccess && <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />}
-            {isError   && <XCircle      size={15} className="text-red-400 shrink-0" />}
-            {!isSuccess && !isError && <Activity size={15} className="text-ds-muted shrink-0" />}
-            <span className="text-ds-text font-semibold text-sm truncate">
-              {log.workflow_name ?? 'Unnamed Workflow'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-medium ${
+    <div className="card overflow-hidden">
+      <div className="flex gap-0">
+        {/* Status stripe */}
+        <div className={`w-1 shrink-0 ${isSuccess ? 'bg-emerald-500/70' : isError ? 'bg-red-500/70' : 'bg-ds-border'}`} />
+
+        <div className="flex-1 px-5 py-4 min-w-0">
+          {/* Top row */}
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                isSuccess ? 'bg-emerald-500/10' : isError ? 'bg-red-500/10' : 'bg-ds-surface2'
+              }`}>
+                {isSuccess && <CheckCircle2 size={13} className="text-emerald-400" />}
+                {isError   && <XCircle      size={13} className="text-red-400" />}
+                {!isSuccess && !isError && <Activity size={13} className="text-ds-muted" />}
+              </div>
+              <div className="min-w-0">
+                <p className={`font-semibold text-sm truncate leading-tight ${isError ? 'text-red-300' : 'text-ds-text'}`}>
+                  {log.message ?? 'No message'}
+                </p>
+                <p className="flex items-center gap-1 text-[11px] text-ds-muted mt-0.5">
+                  <Clock size={9} />
+                  {formatRelative(log.created_at) ?? new Date(log.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-medium shrink-0 ${
               isSuccess ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
               isError   ? 'text-red-400 bg-red-500/10 border-red-500/20' :
                           'text-ds-muted bg-ds-surface2 border-ds-border'
             }`}>
               {isSuccess ? 'Success' : isError ? 'Error' : log.type ?? 'Unknown'}
             </span>
-            <span className="flex items-center gap-1 text-ds-muted text-xs">
-              <Clock size={10} />
-              {formatRelative(log.created_at) ?? new Date(log.created_at).toLocaleDateString()}
-            </span>
           </div>
+
+          {/* Flow name */}
+          {log.workflow_name && (
+            <p className="text-xs text-ds-muted mb-3">
+              <span className="font-medium text-ds-text2">FLOW:</span> {log.workflow_name}
+            </p>
+          )}
+
+          {/* Product + links row */}
+          {(log.product_title || log.product_link || log.execution_url) && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {log.product_title && (
+                log.product_link ? (
+                  <a
+                    href={log.product_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[11px] text-ds-accent hover:text-ds-accentHover bg-ds-accent/5 border border-ds-accent/20 hover:border-ds-accent/40 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    <Package size={10} />
+                    {log.product_title}
+                    <Link2 size={9} className="opacity-60" />
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-ds-text2 bg-ds-surface2 border border-ds-borderSoft px-2.5 py-1 rounded-lg">
+                    <Package size={10} className="text-ds-muted" />
+                    {log.product_title}
+                  </span>
+                )
+              )}
+              {log.execution_url && (
+                <a
+                  href={log.execution_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] text-ds-muted hover:text-ds-text2 bg-ds-surface2 border border-ds-borderSoft hover:border-ds-border px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <ExternalLink size={9} />
+                  View execution
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Error detail + meta */}
+          {(log.error_description || log.last_node_executed || log.execution_id) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2.5 border-t border-ds-borderSoft">
+              {log.error_description && log.error_description !== log.message && (
+                <p className="text-[11px] text-red-400/70 leading-relaxed w-full">{log.error_description}</p>
+              )}
+              {log.last_node_executed && (
+                <span className="text-[11px] text-ds-muted">
+                  Last node: <span className="font-mono text-ds-text2">{log.last_node_executed}</span>
+                </span>
+              )}
+              {log.execution_id && (
+                <span className="flex items-center gap-1 text-[11px] text-ds-muted">
+                  <Cpu size={9} />
+                  <code className="font-mono">{log.execution_id}</code>
+                </span>
+              )}
+            </div>
+          )}
         </div>
-
-        {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
-          {log.execution_id && (
-            <span className="flex items-center gap-1.5 text-xs text-ds-text2">
-              <Cpu size={11} className="text-ds-muted" />
-              <code className="font-mono text-[11px] text-ds-muted">{log.execution_id}</code>
-            </span>
-          )}
-          {log.workflow_id && (
-            <span className="flex items-center gap-1.5 text-xs text-ds-text2">
-              <GitBranch size={11} className="text-ds-muted" />
-              <code className="font-mono text-[11px] text-ds-muted">{log.workflow_id}</code>
-            </span>
-          )}
-          {log.product_title && (
-            <span className="flex items-center gap-1.5 text-xs text-ds-text2 bg-ds-surface2 border border-ds-borderSoft px-2 py-0.5 rounded-md">
-              <Package size={10} className="text-ds-muted" />
-              {log.product_title}
-            </span>
-          )}
-        </div>
-
-        {/* Error details */}
-        {isError && (log.message || log.error_description || log.last_node_executed) && (
-          <div className="bg-red-500/5 border border-red-500/15 rounded-lg px-3.5 py-3 space-y-1.5">
-            {log.message && (
-              <p className="text-red-400 text-xs font-medium leading-relaxed">{log.message}</p>
-            )}
-            {log.error_description && log.error_description !== log.message && (
-              <p className="text-red-400/70 text-xs leading-relaxed">{log.error_description}</p>
-            )}
-            {log.last_node_executed && (
-              <p className="text-ds-muted text-[11px]">
-                Last node: <span className="font-mono text-ds-text2">{log.last_node_executed}</span>
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Footer */}
-        {log.execution_url && (
-          <div className="mt-3 pt-3 border-t border-ds-borderSoft flex items-center justify-end">
-            <a
-              href={log.execution_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"
-            >
-              <ExternalLink size={11} />
-              View execution
-              <ChevronRight size={11} />
-            </a>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -118,7 +135,7 @@ export default function LogsSection() {
       .finally(() => setLoading(false));
   }, [activeOrg]);
 
-  const filtered = logs.filter((l) => filter === 'all' || l.type === filter);
+  const filtered     = logs.filter((l) => filter === 'all' || l.type === filter);
   const successCount = logs.filter((l) => l.type === 'success').length;
   const errorCount   = logs.filter((l) => l.type === 'error').length;
 
@@ -170,7 +187,7 @@ export default function LogsSection() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${active ? 'text-ds-accent border-ds-accent' : 'text-ds-muted border-transparent hover:text-ds-text2'}`}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'text-ds-accent border-ds-accent' : 'text-ds-muted border-transparent hover:text-ds-text2'}`}
               >
                 {f === 'success' && <CheckCircle2 size={13} />}
                 {f === 'error'   && <XCircle      size={13} />}
@@ -183,7 +200,6 @@ export default function LogsSection() {
         </div>
       )}
 
-      {/* States */}
       {loading && (
         <div className="card flex items-center justify-center py-20">
           <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
