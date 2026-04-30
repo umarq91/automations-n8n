@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { AiConfigModel } from '../../models/AiConfigModel';
 import type { AiConfig } from '../../lib/supabase/types';
 import EmptyState from '../../components/shared/EmptyState';
+import KnowledgeUploadCard from './components/KnowledgeUploadCard';
 
 const TONE_OPTIONS = [
   'Professional', 'Friendly', 'Formal', 'Casual', 'Empathetic', 'Direct',
@@ -53,8 +54,13 @@ interface FormState {
   general_prompt: string;
   tone: string;
   rules: string[];
-  vector_namespace: string;
-  vector_id: string;
+}
+
+interface VectorState {
+  seo_vector_namespace: string | null;
+  seo_vector_id: string | null;
+  bannable_words_vector_namespace: string | null;
+  bannable_words_vector_id: string | null;
 }
 
 function configToForm(config: AiConfig | null): FormState {
@@ -62,8 +68,15 @@ function configToForm(config: AiConfig | null): FormState {
     general_prompt: config?.general_prompt ?? '',
     tone: config?.tone ?? 'Professional',
     rules: config?.rules ?? [],
-    vector_namespace: config?.vector_namespace ?? '',
-    vector_id: config?.vector_id ?? '',
+  };
+}
+
+function configToVectors(config: AiConfig | null): VectorState {
+  return {
+    seo_vector_namespace: config?.seo_vector_namespace ?? null,
+    seo_vector_id: config?.seo_vector_id ?? null,
+    bannable_words_vector_namespace: config?.bannable_words_vector_namespace ?? null,
+    bannable_words_vector_id: config?.bannable_words_vector_id ?? null,
   };
 }
 
@@ -78,6 +91,7 @@ export default function AIConfigSection() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState<FormState>(configToForm(null));
   const [form, setForm] = useState<FormState>(configToForm(null));
+  const [vectors, setVectors] = useState<VectorState>(configToVectors(null));
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -91,6 +105,7 @@ export default function AIConfigSection() {
       const formState = configToForm(config);
       setSaved(formState);
       setForm(formState);
+      setVectors(configToVectors(config));
     } catch (err: any) {
       setLoadError(err?.message ?? 'Failed to load AI configuration.');
     } finally {
@@ -128,8 +143,6 @@ export default function AIConfigSection() {
         general_prompt: form.general_prompt || null,
         tone: form.tone || null,
         rules: form.rules.filter(r => r.trim() !== ''),
-        vector_namespace: form.vector_namespace || null,
-        vector_id: form.vector_id || null,
       });
       const newForm = configToForm(result);
       setSaved(newForm);
@@ -294,6 +307,22 @@ export default function AIConfigSection() {
                 </div>
               )}
             </div>
+
+            <KnowledgeUploadCard
+              title="SEO Knowledge Base"
+              description="Upload SEO guidelines the AI references when generating product listings and descriptions."
+              domain="seo"
+              activeNamespace={vectors.seo_vector_namespace}
+              onUploaded={(ns, id) => setVectors(prev => ({ ...prev, seo_vector_namespace: ns, seo_vector_id: id }))}
+            />
+
+            <KnowledgeUploadCard
+              title="Banned Words"
+              description="Upload a list of words or phrases the AI must never use in generated content."
+              domain="banned_words"
+              activeNamespace={vectors.bannable_words_vector_namespace}
+              onUploaded={(ns, id) => setVectors(prev => ({ ...prev, bannable_words_vector_namespace: ns, bannable_words_vector_id: id }))}
+            />
 
             {saveResult && (
               <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm border ${

@@ -175,9 +175,9 @@ function ProductCard({ product, onDelete, onEdit, onDuplicate, selected, onToggl
             )}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-ds-borderSoft">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-3 pt-3 border-t border-ds-borderSoft">
           <p className="text-ds-muted text-xs italic flex-1 min-w-0 truncate">{product.note || ''}</p>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {product.competitor_link && <a href={product.competitor_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"><ExternalLink size={11} /> Competitor</a>}
             {product.supplier_link && <a href={product.supplier_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-ds-accent hover:text-ds-accentHover transition-colors"><ExternalLink size={11} /> Supplier</a>}
             {product.shopify_product_url && <a href={product.shopify_product_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"><ExternalLink size={11} /> Shopify</a>}

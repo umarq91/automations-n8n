@@ -8,7 +8,8 @@
       "Bash(npx shadcn@latest *)",
       "Bash(git check-ignore *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(xargs ls *)"
     ]
   }
 }

@@ -1,0 +1,30 @@
+primary keyword in first 60 characters of title
+lead title with most important keyword
+title between 50 and 80 characters
+capitalize first letter of each major word in title
+include numbers in title where relevant
+lead description with benefit not feature
+short paragraphs 2 to 3 sentences maximum
+bullet points for key features
+each bullet starts with action word or benefit
+reading level grade 8 or lower
+primary keyword in title
+primary keyword in first paragraph
+primary keyword at least 2 times in body
+2 to 3 secondary keywords in description
+use long-tail keywords
+meta description between 150 and 160 characters
+meta description includes primary keyword
+meta description ends with call to action
+every meta description must be unique
+image alt text includes product name and primary keyword
+image alt text under 125 characters
+do not start alt text with image of or photo of
+product URL lowercase and hyphen-separated
+remove stop words from URL
+URL under 75 characters
+Schema.org Product markup required
+Schema fields: name description image price currency availability brand
+first 150 characters of description must be compelling
+use short sentences for mobile
+bullet points over dense paragraphs
