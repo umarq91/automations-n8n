@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { AiConfigModel } from '../../models/AiConfigModel';
 import type { AiConfig } from '../../lib/supabase/types';
+import { Skeleton } from '../../components/ui/skeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import KnowledgeUploadCard from './components/KnowledgeUploadCard';
 
@@ -181,9 +182,27 @@ export default function AIConfigSection() {
         )}
 
         {loading && (
-          <div className="flex items-center justify-center py-24 gap-2 text-ds-muted">
-            <Loader2 size={18} className="animate-spin" />
-            <span className="text-sm">Loading configuration…</span>
+          <div className="space-y-6">
+            <div className="card p-6">
+              <Skeleton className="h-4 w-32 mb-4" />
+              <Skeleton className="h-28 w-full" />
+            </div>
+            <div className="card p-6">
+              <Skeleton className="h-4 w-28 mb-4" />
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-24 rounded-xl" />
+                ))}
+              </div>
+            </div>
+            <div className="card p-6">
+              <Skeleton className="h-4 w-20 mb-4" />
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

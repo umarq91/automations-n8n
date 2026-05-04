@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CreditModel } from '../../models/CreditModel';
 import type { OrganizationCredits, CreditUsageLogWithProduct, CreditType } from '../../lib/supabase/types';
 import { formatDate, formatDateTime } from '../../lib/utils';
+import { Skeleton } from '../../components/ui/skeleton';
 import { Pagination } from '../../components/ui/pagination';
 import { PAGE_SIZE } from '../../constants/pagination';
 
@@ -139,9 +140,44 @@ export default function CreditsSection() {
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-24">
-          <RefreshCw size={20} className="animate-spin text-ds-muted" />
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="card p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-28 mb-1.5" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+                <Skeleton className="h-2 w-full rounded-full mb-2" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            ))}
+          </div>
+          <div className="card overflow-hidden">
+            <div className="px-5 py-4 border-b border-ds-borderSoft">
+              <Skeleton className="h-4 w-24 mb-1.5" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <div className="divide-y divide-ds-borderSoft">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="px-5 py-3 flex items-center gap-4">
+                  <Skeleton className="w-7 h-7 shrink-0" />
+                  <div className="flex-1">
+                    <Skeleton className="h-3.5 w-32 mb-1.5" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="h-3.5 w-10 mb-1.5 ml-auto" />
+                    <Skeleton className="h-3 w-16 ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {error && !loading && (
@@ -170,8 +206,20 @@ export default function CreditsSection() {
             </div>
 
             {logsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
+              <div className="divide-y divide-ds-borderSoft">
+                {Array.from({ length: logs.length || PAGE_SIZE }).map((_, i) => (
+                  <div key={i} className="px-5 py-3 flex items-center gap-4">
+                    <Skeleton className="w-7 h-7 shrink-0" />
+                    <div className="flex-1">
+                      <Skeleton className="h-3.5 w-32 mb-1.5" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <div className="text-right">
+                      <Skeleton className="h-3.5 w-10 mb-1.5 ml-auto" />
+                      <Skeleton className="h-3 w-16 ml-auto" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : logs.length === 0 ? (
               <div className="px-5 py-10 text-center">

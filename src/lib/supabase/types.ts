@@ -117,6 +117,7 @@ export interface Product {
   shopify_product_url: string | null;
   shopify_admin_url: string | null;
   to_optimize: boolean;
+  shopify_initial_status: 'DRAFT' | 'PUBLISH' | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

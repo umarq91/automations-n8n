@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Mail, Loader2, Sparkles } from 'lucide-react';
+import { Search, Mail, Sparkles } from 'lucide-react';
+import { Skeleton } from '../../components/ui/skeleton';
 import ErrorBanner from '../../components/shared/ErrorBanner';
 import { useAuth } from '../../contexts/AuthContext';
 import { EmailTemplateModel } from '../../models/EmailTemplateModel';
@@ -112,8 +113,22 @@ export default function EmailSection() {
 
           <div className="max-h-[680px] overflow-y-auto divide-y divide-ds-borderSoft">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-ds-muted text-sm">
-                <Loader2 size={18} className="animate-spin" /> Loading…
+              <div className="divide-y divide-ds-borderSoft">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="px-4 py-4 border-l-2 border-l-transparent">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-36 mb-1.5" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                      <Skeleton className="h-5 w-16 shrink-0" />
+                    </div>
+                    <div className="flex gap-1">
+                      <Skeleton className="h-4 w-12 rounded-full" />
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filtered.length > 0 ? (
               filtered.map((t) => (

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toaster } from "sonner";
-import { LogOut, ChevronDown, Building2, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import Dashboard from "./Dashboard";
 import Sidebar, { type ActiveSection } from "./components/layout/Sidebar";
 import LoginPage from "./components/auth/LoginPage";
@@ -34,16 +34,26 @@ function App() {
     session,
     user,
     activeOrg,
-    organizations,
-    setActiveOrg,
     signOut,
     loading,
   } = useAuth();
   const [activeSection, setActiveSection] =
     useState<ActiveSection>(readSectionFromUrl);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [profileOpen]);
 
   const role = activeOrg?.role;
 
@@ -145,61 +155,32 @@ function App() {
               </div>
 
               <div className="flex items-center gap-2 sm:gap-2.5">
-                {/* Org switcher */}
-                {organizations.length > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setOrgMenuOpen((v) => !v)}
-                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-ds-surface border border-ds-border hover:bg-ds-hover transition text-xs text-ds-text2"
-                    >
-                      <Building2 size={13} className="text-ds-muted shrink-0" />
-                      <span className="hidden sm:inline max-w-[110px] truncate font-medium">
-                        {activeOrg?.name ?? "No org"}
-                      </span>
-                      <ChevronDown size={12} className="text-ds-muted shrink-0" />
-                    </button>
-
-                    {orgMenuOpen && (
-                      <div className="fixed top-[57px] left-2 right-2 z-50 bg-ds-surface2 border border-ds-border rounded-xl shadow-card overflow-hidden sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:mt-2 sm:w-52 sm:max-w-[calc(100vw-1rem)]">
-                        {organizations.map((org) => (
-                          <button
-                            key={org.id}
-                            onClick={() => {
-                              setActiveOrg(org);
-                              setOrgMenuOpen(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-xs transition flex items-center justify-between gap-2 ${
-                              org.id === activeOrg?.id
-                                ? "bg-ds-accent/10 text-ds-accent"
-                                : "text-ds-text2 hover:bg-ds-hover"
-                            }`}
-                          >
-                            <span className="truncate font-medium">{org.name}</span>
-                            <span className="text-ds-muted capitalize shrink-0">{org.role}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 <NotificationBell />
 
-                {/* Avatar + sign out */}
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-7 h-7 rounded-full gradient-indigo flex items-center justify-center text-[11px] font-bold text-white select-none shadow-accent-glow">
-                    {initials}
-                  </div>
+                {/* Profile dropdown */}
+                <div className="relative" ref={profileRef}>
                   <button
-                    onClick={signOut}
-                    title="Sign out"
-                    className="p-2 rounded-xl bg-ds-surface border border-ds-border hover:bg-red-500/10 hover:border-red-500/20 transition group"
+                    onClick={() => setProfileOpen((v) => !v)}
+                    className="w-7 h-7 rounded-full gradient-indigo flex items-center justify-center text-[11px] font-bold text-white select-none shadow-accent-glow hover:opacity-80 transition-opacity"
                   >
-                    <LogOut
-                      size={14}
-                      className="text-ds-muted group-hover:text-red-400 transition-colors"
-                    />
+                    {initials}
                   </button>
+
+                  {profileOpen && (
+                    <div className="absolute right-0 mt-2 w-52 bg-ds-surface2 border border-ds-border rounded-xl shadow-card overflow-hidden z-50">
+                      <div className="px-4 py-3 border-b border-ds-borderSoft">
+                        <p className="text-ds-text text-xs font-semibold truncate">{user?.full_name ?? 'My Account'}</p>
+                        <p className="text-ds-muted text-[11px] truncate mt-0.5">{user?.email ?? ''}</p>
+                      </div>
+                      <button
+                        onClick={() => { setProfileOpen(false); signOut(); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-ds-text2 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                      >
+                        <LogOut size={13} />
+                        Sign out
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -213,13 +194,6 @@ function App() {
           </div>
         </main>
       </div>
-
-      {orgMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 sm:bg-transparent bg-black/30"
-          onClick={() => setOrgMenuOpen(false)}
-        />
-      )}
 
       <Toaster
         position="bottom-right"

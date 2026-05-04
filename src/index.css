@@ -99,4 +99,16 @@
   .animate-fade-in {
     animation: fade-in 0.25s ease-out both;
   }
+
+  /* ── Skeleton shimmer ───────────────────── */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, #182230 25%, #202C3D 50%, #182230 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 0.5rem;
+  }
 }

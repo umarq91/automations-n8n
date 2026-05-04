@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, CreditCard, Activity, type LucideIcon } from 'lucide-react';
+import { Mail, Zap, ChevronRight, Building2, Plug, Bot, AlertTriangle, Package, PackagePlus, CreditCard, Activity, Settings, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { canAccess } from '../../lib/rbac';
 
@@ -13,12 +13,15 @@ interface SidebarProps {
 }
 
 const navItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
-  { id: 'organization', label: 'Organization',      icon: Building2  },
   { id: 'email',        label: 'Email Templates',   icon: Mail       },
   { id: 'ai-config',   label: 'AI Settings',        icon: Bot        },
   { id: 'integrations', label: 'Integrations',      icon: Plug       },
   { id: 'credits',      label: 'Credits',            icon: CreditCard },
   { id: 'logs',         label: 'Logs & Monitoring',  icon: Activity   },
+];
+
+const settingsSubItems: { id: ActiveSection; label: string; icon: LucideIcon }[] = [
+  { id: 'organization', label: 'Organization', icon: Building2 },
 ];
 
 const MAINTENANCE_MESSAGE = 'We are currently performing scheduled maintenance. Some features may be unavailable.';
@@ -32,11 +35,17 @@ export default function Sidebar({ activeSection, onNavigate, isOpen = false, onC
   const { user, activeOrg } = useAuth();
   const role = activeOrg?.role;
   const isProductsActive = activeSection.startsWith('products-');
+  const isSettingsActive = activeSection === 'organization';
   const [productsOpen, setProductsOpen] = useState(isProductsActive);
+  const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
 
   useEffect(() => {
     if (isProductsActive) setProductsOpen(true);
   }, [isProductsActive]);
+
+  useEffect(() => {
+    if (isSettingsActive) setSettingsOpen(true);
+  }, [isSettingsActive]);
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -44,7 +53,9 @@ export default function Sidebar({ activeSection, onNavigate, isOpen = false, onC
 
   const visibleNavItems = navItems.filter((item) => canAccess(role, item.id));
   const visibleProductSubItems = productSubItems.filter((item) => canAccess(role, item.id));
+  const visibleSettingsSubItems = settingsSubItems.filter((item) => canAccess(role, item.id));
   const showProductsGroup = visibleProductSubItems.length > 0;
+  const showSettingsGroup = visibleSettingsSubItems.length > 0;
 
   function handleNavigate(section: ActiveSection) {
     onNavigate(section);
@@ -133,6 +144,41 @@ export default function Sidebar({ activeSection, onNavigate, isOpen = false, onC
               )}
             </>
           )}
+
+          {showSettingsGroup && (
+            <>
+              <button
+                onClick={() => setSettingsOpen((o) => !o)}
+                className={`sidebar-nav-item w-full ${isSettingsActive ? 'active' : 'inactive'}`}
+              >
+                <Settings size={16} />
+                <span className="flex-1 text-left">Settings</span>
+                <ChevronRight
+                  size={13}
+                  className={`text-ds-muted transition-transform duration-200 ${settingsOpen ? 'rotate-90' : ''}`}
+                />
+              </button>
+              {settingsOpen && (
+                <div className="ml-3 pl-3 border-l border-ds-borderSoft space-y-0.5 mt-0.5">
+                  {visibleSettingsSubItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeSection === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavigate(item.id)}
+                        className={`sidebar-nav-item w-full text-[13px] ${isActive ? 'active' : 'inactive'}`}
+                      >
+                        <Icon size={14} />
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {isActive && <ChevronRight size={12} className="text-ds-accent opacity-70" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </nav>
 
         {/* Bottom */}
@@ -168,10 +214,7 @@ export default function Sidebar({ activeSection, onNavigate, isOpen = false, onC
             )
           )}
 
-          <button
-            onClick={() => canAccess(role, 'organization') && handleNavigate('organization')}
-            className={`flex items-center gap-3 w-full px-1 transition-opacity text-left ${canAccess(role, 'organization') ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
-          >
+          <div className="flex items-center gap-3 w-full px-1">
             <div className="w-8 h-8 gradient-indigo rounded-full flex items-center justify-center flex-shrink-0 shadow-accent-glow">
               <span className="text-white text-xs font-bold">{initials}</span>
             </div>
@@ -179,7 +222,7 @@ export default function Sidebar({ activeSection, onNavigate, isOpen = false, onC
               <p className="text-ds-text text-xs font-medium truncate">{user?.full_name ?? 'My Account'}</p>
               <p className="text-ds-muted text-[11px] truncate">{user?.email ?? ''}</p>
             </div>
-          </button>
+          </div>
         </div>
       </aside>
     </>

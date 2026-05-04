@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { WorkflowLogModel } from '../../models/WorkflowLogModel';
 import type { WorkflowLog } from '../../lib/supabase/types';
 import { formatRelative } from '../../lib/utils';
+import { Skeleton } from '../../components/ui/skeleton';
 import { Pagination } from '../../components/ui/pagination';
 import { PAGE_SIZE } from '../../constants/pagination';
 
@@ -215,8 +216,28 @@ export default function LogsSection() {
       )}
 
       {loading && (
-        <div className="card flex items-center justify-center py-20">
-          <div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
+        <div className="space-y-3">
+          {Array.from({ length: logs.length || PAGE_SIZE }).map((_, i) => (
+            <div key={i} className="card overflow-hidden">
+              <div className="flex gap-0">
+                <div className="w-1 shrink-0 skeleton" style={{ borderRadius: 0 }} />
+                <div className="flex-1 px-5 py-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <Skeleton className="w-7 h-7 shrink-0" />
+                      <div>
+                        <Skeleton className="h-4 w-48 mb-1.5" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-5 w-16 shrink-0" />
+                  </div>
+                  <Skeleton className="h-3 w-36 mb-2" />
+                  <Skeleton className="h-3 w-52" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {error && (

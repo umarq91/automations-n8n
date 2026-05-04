@@ -6,11 +6,11 @@ import {
   RefreshCw, AlertTriangle, Plug, Boxes, FileUp, X,
   Check, CheckSquare, Copy,
 } from 'lucide-react';
+import { Skeleton } from '../../../components/ui/skeleton';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProductModel, type ShopifyConnection } from '../../../models/ProductModel';
 import type { Product } from '../../../lib/supabase/types';
-import { PRODUCT_STATUS_LABEL, PRODUCT_STATUS_CLASS, PRODUCT_STATUS } from '../../../constants/productStatus';
-import type { ProductStatus } from '../../../lib/supabase/types';
+import { PRODUCT_STATUS_LABEL, PRODUCT_STATUS_CLASS } from '../../../constants/productStatus';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Button } from '../../../components/ui/button';
 import { formatRelative } from '../../../lib/utils';
@@ -42,17 +42,31 @@ function DarkCheckbox({ checked, onChange }: { checked: boolean; onChange: () =>
   );
 }
 
-function ProductPhoto({ url }: { url: string | null }) {
-  if (!url) {
-    return (
-      <div className="w-full h-36 sm:w-44 sm:h-auto sm:min-h-[160px] sm:shrink-0 bg-ds-surface2 border-b sm:border-b-0 sm:border-r border-ds-border flex items-center justify-center rounded-t-xl sm:rounded-t-none sm:rounded-l-xl">
-        <Package size={28} className="text-ds-muted" />
-      </div>
-    );
-  }
+function ProductCardSkeleton() {
   return (
-    <div className="w-full h-36 sm:w-44 sm:h-auto sm:min-h-[160px] sm:shrink-0 overflow-hidden rounded-t-xl sm:rounded-t-none sm:rounded-l-xl">
-      <img src={url} alt="product" className="w-full h-full object-cover" />
+    <div className="card px-4 sm:px-5 py-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <Skeleton className="h-5 w-2/5" />
+        <Skeleton className="h-5 w-20 shrink-0" />
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <Skeleton className="h-5 w-16" />
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-5 w-16" />
+      </div>
+      <div className="flex flex-wrap gap-4 mb-1">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-4 w-20" />
+      </div>
+      <div className="flex items-center justify-between pt-3 mt-2 border-t border-ds-borderSoft">
+        <Skeleton className="h-3 w-32" />
+        <div className="flex gap-2">
+          <Skeleton className="h-6 w-16" />
+          <Skeleton className="h-6 w-12" />
+          <Skeleton className="h-6 w-14" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -105,8 +119,6 @@ function ProductCard({ product, onDelete, onEdit, onDuplicate, selected, onToggl
           </motion.div>
         )}
       </AnimatePresence>
-
-      <ProductPhoto url={product.photo_url ?? null} />
 
       <div className="flex-1 px-4 sm:px-5 py-4 flex flex-col justify-between min-w-0">
         <div>
@@ -237,6 +249,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   const [refreshing,        setRefreshing]        = useState(false);
   const [selectMode,        setSelectMode]        = useState(false);
   const [selectedIds,       setSelectedIds]       = useState<Set<string>>(new Set());
+  const [selectAllDB,       setSelectAllDB]       = useState(false);
   const [bulkDeleteModal,   setBulkDeleteModal]   = useState(false);
   const [bulkLoading,       setBulkLoading]       = useState(false);
 
@@ -319,7 +332,10 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   }
 
   function handleSelectAll() {
-    if (selectedIds.size === products.length) {
+    if (selectAllDB) {
+      setSelectAllDB(false);
+      setSelectedIds(new Set());
+    } else if (selectedIds.size === products.length) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(products.map((p) => p.id)));
@@ -329,15 +345,22 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedIds(new Set());
+    setSelectAllDB(false);
   }
 
   async function handleBulkDelete() {
     setBulkLoading(true);
     try {
-      await ProductModel.bulkDelete(Array.from(selectedIds));
+      let ids: string[];
+      if (selectAllDB) {
+        ids = await ProductModel.getAllIds(activeOrg!.id);
+      } else {
+        ids = Array.from(selectedIds);
+      }
+      await ProductModel.bulkDelete(ids);
       setBulkDeleteModal(false);
       exitSelectMode();
-      const remaining = total - selectedIds.size;
+      const remaining = total - ids.length;
       const newTotalPages = Math.max(1, Math.ceil(remaining / PAGE_SIZE));
       const targetPage = Math.min(page, newTotalPages);
       if (targetPage !== page) goToPage(targetPage);
@@ -360,8 +383,14 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
     if (!status) return;
     setBulkLoading(true);
     try {
-      await ProductModel.bulkUpdateStatus(Array.from(selectedIds), status);
-      setProducts((prev) => prev.map((p) => selectedIds.has(p.id) ? { ...p, status: status as ProductStatus } : p));
+      let ids: string[];
+      if (selectAllDB) {
+        ids = await ProductModel.getAllIds(activeOrg!.id);
+      } else {
+        ids = Array.from(selectedIds);
+      }
+      await ProductModel.bulkUpdateStatus(ids, status);
+      await fetchProducts(page, true);
       exitSelectMode();
     } catch { /* noop */ }
     setBulkLoading(false);
@@ -369,7 +398,9 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
 
   const listedCount  = loading ? null : products.length;
   const shopifyCount = shopifyLoading ? null : shopifyProducts.length;
-  const allSelected  = products.length > 0 && selectedIds.size === products.length;
+  const allSelected  = selectAllDB || (products.length > 0 && selectedIds.size === products.length);
+  const pageAllSelected = products.length > 0 && selectedIds.size === products.length && !selectAllDB;
+  const selectedCount = selectAllDB ? total : selectedIds.size;
 
   return (
     <div className="animate-fade-in">
@@ -440,7 +471,11 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
 
       {activeTab === 'listed' && (
         <>
-          {loading && <div className="card flex items-center justify-center py-20"><div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" /></div>}
+          {loading && (
+            <div className="space-y-3">
+              {Array.from({ length: products.length || PAGE_SIZE }).map((_, i) => <ProductCardSkeleton key={i} />)}
+            </div>
+          )}
           {error && <div className="card flex items-center justify-center py-20"><span className="text-red-400 text-sm">{error}</span></div>}
           {!loading && !error && products.length === 0 && (
             <div className="card flex flex-col items-center justify-center py-20 px-8 text-center">
@@ -465,15 +500,26 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                   >
                     <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-ds-border bg-ds-surface2/60 flex-wrap">
                       {/* Select all checkbox + label */}
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 flex-wrap">
                         <DarkCheckbox checked={allSelected} onChange={handleSelectAll} />
                         <span className="text-ds-text2 text-xs font-medium">
-                          {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+                          {selectedCount > 0 ? `${selectedCount} selected` : 'Select all'}
                         </span>
+                        {pageAllSelected && total > products.length && (
+                          <button
+                            onClick={() => setSelectAllDB(true)}
+                            className="text-xs text-ds-accent hover:text-ds-accentHover transition-colors"
+                          >
+                            Select all {total} products
+                          </button>
+                        )}
+                        {selectAllDB && (
+                          <span className="text-xs text-ds-accent">All {total} products selected</span>
+                        )}
                       </div>
 
                       <AnimatePresence initial={false}>
-                        {selectedIds.size > 0 && (
+                        {selectedCount > 0 && (
                           <motion.div
                             initial={{ opacity: 0, width: 0 }}
                             animate={{ opacity: 1, width: 'auto' }}
@@ -487,9 +533,8 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                                 <SelectValue placeholder="Change status…" />
                               </SelectTrigger>
                               <SelectContent>
-                                {Object.entries(PRODUCT_STATUS).map(([k]) => (
-                                  <SelectItem key={k} value={k}>{PRODUCT_STATUS_LABEL[k]}</SelectItem>
-                                ))}
+                                <SelectItem value="DRAFT">{PRODUCT_STATUS_LABEL['DRAFT']}</SelectItem>
+                                <SelectItem value="READY_TO_IMPORT">{PRODUCT_STATUS_LABEL['READY_TO_IMPORT']}</SelectItem>
                               </SelectContent>
                             </Select>
                             <button
@@ -498,7 +543,7 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
                               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-ds-border text-ds-muted hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all disabled:opacity-50 shrink-0"
                             >
                               <Trash2 size={11} />
-                              Delete {selectedIds.size}
+                              Delete {selectedCount}
                             </button>
                           </motion.div>
                         )}
@@ -562,15 +607,19 @@ export default function ProductsList({ onNavigate }: ProductsListProps) {
         open={bulkDeleteModal}
         onClose={() => setBulkDeleteModal(false)}
         onConfirm={handleBulkDelete}
-        title={`Delete ${selectedIds.size} product${selectedIds.size !== 1 ? 's' : ''}?`}
+        title={`Delete ${selectedCount} product${selectedCount !== 1 ? 's' : ''}?`}
         description="This action is permanent and cannot be undone. All selected products will be removed from your catalog."
         phrase={CONFIRM_PHRASES.BULK_DELETE}
-        confirmLabel={`Delete ${selectedIds.size} product${selectedIds.size !== 1 ? 's' : ''}`}
+        confirmLabel={`Delete ${selectedCount} product${selectedCount !== 1 ? 's' : ''}`}
       />
 
       {activeTab === 'shopify' && (
         <>
-          {shopifyLoading && <div className="card flex items-center justify-center py-20"><div className="w-5 h-5 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" /></div>}
+          {shopifyLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: shopifyProducts.length || PAGE_SIZE }).map((_, i) => <ProductCardSkeleton key={i} />)}
+            </div>
+          )}
           {shopifyError && <div className="card flex items-center justify-center py-20"><span className="text-red-400 text-sm">{shopifyError}</span></div>}
           {!shopifyLoading && !shopifyError && !connection?.connected && (
             <div className="card flex flex-col items-center justify-center py-20 px-8 text-center">

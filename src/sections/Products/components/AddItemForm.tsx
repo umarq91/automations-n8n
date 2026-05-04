@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { PackagePlus, Upload, Loader2, X } from "lucide-react";
+import { useState } from "react";
+import { PackagePlus, Loader2 } from "lucide-react";
 import ErrorBanner from "../../../components/shared/ErrorBanner";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -24,9 +24,6 @@ interface AddItemFormData {
   title: string;
   use_competitor_title: boolean;
   competitor_link: string;
-  date: string;
-  photo: File | null;
-  photoPreview: string | null;
   colors: string[];
   sizes: string[];
   material: string;
@@ -41,15 +38,13 @@ interface AddItemFormData {
   discount: string;
   stock_quantity: string;
   to_optimize: boolean;
+  shopify_initial_status: 'DRAFT' | 'PUBLISH';
 }
 
 const emptyForm: AddItemFormData = {
   title: "",
   use_competitor_title: false,
   competitor_link: "",
-  date: "",
-  photo: null,
-  photoPreview: null,
   colors: [],
   sizes: [],
   material: "",
@@ -60,10 +55,11 @@ const emptyForm: AddItemFormData = {
   note: "",
   season: "",
   gender: "",
-  status: "NOT_IMPORTED",
+  status: "DRAFT",
   discount: "",
   stock_quantity: "100",
   to_optimize: false,
+  shopify_initial_status: 'DRAFT',
 };
 
 const selectClass =
@@ -83,7 +79,6 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function set<K extends keyof AddItemFormData>(
     field: K,
@@ -103,25 +98,7 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
     }));
   }
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) return;
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
-    setForm((prev) => ({
-      ...prev,
-      photo: file,
-      photoPreview: URL.createObjectURL(file),
-    }));
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function removePhoto() {
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
-    setForm((prev) => ({ ...prev, photo: null, photoPreview: null }));
-  }
-
   function handleReset() {
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
     setForm(emptyForm);
     setSaveState("idle");
     setErrorMsg("");
@@ -160,12 +137,12 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         ).trim(),
       };
 
-      const product = await ProductModel.create({
+      await ProductModel.create({
         organization_id: activeOrg.id,
         created_by: user.id,
         title: form.title.trim(),
         status: form.status as ProductStatus,
-        date: form.date || null,
+        date: null,
         photo_url: null,
         colors: form.colors,
         sizes: form.sizes,
@@ -187,18 +164,9 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
         shopify_product_url: null,
         shopify_admin_url: null,
         to_optimize: form.to_optimize,
+        shopify_initial_status: form.shopify_initial_status,
       });
 
-      if (form.photo) {
-        const photoUrl = await ProductModel.uploadPhoto(
-          form.photo,
-          activeOrg.id,
-          product.id,
-        );
-        await ProductModel.update(product.id, { photo_url: photoUrl });
-      }
-
-      if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
       onNavigate("products-list");
     } catch (err) {
       setErrorMsg(
@@ -238,8 +206,8 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
           <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
             Basic Info
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div className="sm:col-span-2 lg:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="sm:col-span-2">
               <Label htmlFor="item-title">
                 Title <span className="text-red-400">*</span>
               </Label>
@@ -277,29 +245,6 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
               </div>
             </div>
             <div>
-              <Label htmlFor="item-date">Date</Label>
-              <Input
-                id="item-date"
-                type="date"
-                value={form.date}
-                onChange={(e) => set("date", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="item-status">Status</Label>
-              <select
-                id="item-status"
-                className={selectClass}
-                value={form.status}
-                onChange={(e) => set("status", e.target.value)}
-              >
-                <option value="DRAFT">Draft</option>
-                <option value="NOT_IMPORTED">Not Imported</option>
-                <option value="READY_TO_IMPORT">Ready to Import</option>
-                <option value="ALREADY_IMPORTED">Already Imported</option>
-              </select>
-            </div>
-            <div>
               <Label htmlFor="item-gender">Gender</Label>
               <select
                 id="item-gender"
@@ -331,45 +276,6 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
               </select>
             </div>
           </div>
-        </section>
-
-        <section className="card p-6">
-          <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
-            Photo
-          </h2>
-          {form.photoPreview ? (
-            <div className="relative w-36 h-36 rounded-xl overflow-hidden border border-ds-border group">
-              <img
-                src={form.photoPreview}
-                alt="preview"
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={removePhoto}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-[#0B0F14]/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X size={11} className="text-white" />
-              </button>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-ds-border rounded-xl cursor-pointer hover:border-ds-accent/50 hover:bg-ds-surface2/50 transition-all">
-              <Upload size={20} className="text-ds-muted mb-2" />
-              <span className="text-ds-muted text-sm">
-                Click to upload photo
-              </span>
-              <span className="text-ds-muted text-xs mt-1">
-                PNG, JPG, WEBP up to 10MB
-              </span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhoto}
-              />
-            </label>
-          )}
         </section>
 
         <section className="card p-6">
@@ -589,6 +495,65 @@ export default function AddItemForm({ onNavigate }: AddItemFormProps) {
             value={form.note}
             onChange={(e) => set("note", e.target.value)}
           />
+        </section>
+
+        <section className="card p-6">
+          <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
+            Status
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: "DRAFT", label: "Draft", desc: "Saved but not queued for import." },
+              { value: "READY_TO_IMPORT", label: "Ready to Import", desc: "Queued for Shopify import." },
+            ] as const).map(({ value, label, desc }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => set("status", value)}
+                className={`flex flex-col items-start px-4 py-3.5 rounded-xl border text-left transition-all ${
+                  form.status === value
+                    ? "border-ds-accent/60 bg-ds-accent/[0.08] shadow-accent-glow"
+                    : "border-ds-border bg-ds-surface2 hover:border-ds-border/80 hover:bg-ds-hover"
+                }`}
+              >
+                <span className={`text-sm font-semibold ${form.status === value ? "text-ds-accent" : "text-ds-text2"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-ds-muted mt-0.5">{desc}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="card p-6">
+          <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
+            Shopify Listing Status
+          </h2>
+          <p className="text-ds-muted text-xs mb-4">
+            After the automated flow lists this product on Shopify, it will be created with this status.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: "DRAFT", label: "Draft", desc: "Listed privately, not visible in store." },
+              { value: "PUBLISH", label: "Publish", desc: "Listed publicly, visible to customers." },
+            ] as const).map(({ value, label, desc }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => set("shopify_initial_status", value)}
+                className={`flex flex-col items-start px-4 py-3.5 rounded-xl border text-left transition-all ${
+                  form.shopify_initial_status === value
+                    ? "border-ds-accent/60 bg-ds-accent/[0.08] shadow-accent-glow"
+                    : "border-ds-border bg-ds-surface2 hover:border-ds-border/80 hover:bg-ds-hover"
+                }`}
+              >
+                <span className={`text-sm font-semibold ${form.shopify_initial_status === value ? "text-ds-accent" : "text-ds-text2"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-ds-muted mt-0.5">{desc}</span>
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="card p-6">

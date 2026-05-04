@@ -9,6 +9,7 @@ import { MemberModel } from '../../models/MemberModel';
 import { UserModel } from '../../models/UserModel';
 import type { OrganizationMemberWithUser, MemberRole } from '../../lib/supabase/types';
 import type { ActiveSection } from '../../components/layout/Sidebar';
+import { Skeleton } from '../../components/ui/skeleton';
 import { Button } from '../../components/ui/button';
 import { formatDate } from '../../lib/utils';
 import EmptyState from '../../components/shared/EmptyState';
@@ -256,9 +257,27 @@ export default function OrganizationSection({ onNavigate }: OrganizationSectionP
         </div>
 
         {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-ds-muted">
-            <Loader2 size={17} className="animate-spin" />
-            <span className="text-sm">Loading members…</span>
+          <div className="divide-y divide-ds-borderSoft">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="px-4 sm:px-6 py-4 sm:grid sm:grid-cols-12 sm:items-center">
+                <div className="sm:col-span-5 flex items-center gap-3">
+                  <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                  <div>
+                    <Skeleton className="h-4 w-32 mb-1.5" />
+                    <Skeleton className="h-3 w-44" />
+                  </div>
+                </div>
+                <div className="hidden sm:block sm:col-span-3">
+                  <Skeleton className="h-5 w-16" />
+                </div>
+                <div className="hidden sm:block sm:col-span-2">
+                  <Skeleton className="h-4 w-14" />
+                </div>
+                <div className="hidden sm:flex sm:col-span-2 justify-end">
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
         {error && (

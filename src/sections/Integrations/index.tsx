@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plug, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
+import { Plug, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Skeleton } from '../../components/ui/skeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import { useAuth } from '../../contexts/AuthContext';
 import { IntegrationModel } from '../../models/IntegrationModel';
@@ -106,9 +107,21 @@ export default function IntegrationsSection() {
       )}
 
       {loading && (
-        <div className="flex items-center justify-center py-24 gap-2 text-ds-muted">
-          <Loader2 size={18} className="animate-spin" />
-          <span className="text-sm">Loading integrations…</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="card p-6 flex flex-col gap-5">
+              <div className="flex items-start gap-3.5">
+                <Skeleton className="w-12 h-12 rounded-2xl shrink-0" />
+                <div className="flex-1">
+                  <Skeleton className="h-4 w-24 mb-1.5" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-9 w-full rounded-xl" />
+            </div>
+          ))}
         </div>
       )}
 

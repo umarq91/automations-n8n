@@ -166,6 +166,16 @@ export class ProductModel {
     return data;
   }
 
+  static async getAllIds(organizationId: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('source', 'manual');
+    if (error) throw error;
+    return (data ?? []).map((r) => r.id);
+  }
+
   static async bulkDelete(ids: string[]): Promise<void> {
     const { error } = await supabase.from('products').delete().in('id', ids);
     if (error) throw error;

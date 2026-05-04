@@ -1,11 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Pencil,
-  Upload,
   AlertCircle,
   Loader2,
   ArrowLeft,
-  X,
 } from "lucide-react";
 import ErrorBanner from "../../../components/shared/ErrorBanner";
 import { Input } from "../../../components/ui/input";
@@ -32,10 +30,6 @@ interface EditFormData {
   title: string;
   use_competitor_title: boolean;
   competitor_link: string;
-  date: string;
-  photo: File | null;
-  photoPreview: string | null;
-  existingPhotoUrl: string | null;
   colors: string[];
   sizes: string[];
   material: string;
@@ -50,6 +44,7 @@ interface EditFormData {
   discount: string;
   stock_quantity: string;
   to_optimize: boolean;
+  shopify_initial_status: 'DRAFT' | 'PUBLISH';
 }
 
 const selectClass =
@@ -76,10 +71,6 @@ function productToFormData(p: Product): EditFormData {
     title: p.title,
     use_competitor_title: p.use_competitor_title,
     competitor_link: p.competitor_link ?? "",
-    date: p.date ?? "",
-    photo: null,
-    photoPreview: null,
-    existingPhotoUrl: p.photo_url ?? null,
     colors: p.colors ?? [],
     sizes: p.sizes ?? [],
     material: p.material ?? "",
@@ -97,6 +88,7 @@ function productToFormData(p: Product): EditFormData {
     discount: p.discount != null ? String(p.discount) : "",
     stock_quantity: p.stock_quantity != null ? String(p.stock_quantity) : "100",
     to_optimize: p.to_optimize,
+    shopify_initial_status: p.shopify_initial_status ?? 'DRAFT',
   };
 }
 
@@ -117,7 +109,6 @@ export default function EditItemForm({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     ProductModel.getById(productId)
@@ -147,33 +138,6 @@ export default function EditItemForm({
     );
   }
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (!file || !form) return;
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
-    setForm((prev) =>
-      prev
-        ? {
-            ...prev,
-            photo: file,
-            photoPreview: URL.createObjectURL(file),
-            existingPhotoUrl: null,
-          }
-        : prev,
-    );
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function removePhoto() {
-    if (!form) return;
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
-    setForm((prev) =>
-      prev
-        ? { ...prev, photo: null, photoPreview: null, existingPhotoUrl: null }
-        : prev,
-    );
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!activeOrg || !form) return;
@@ -199,14 +163,6 @@ export default function EditItemForm({
     setErrorMsg("");
 
     try {
-      let photoUrl: string | null = form.existingPhotoUrl;
-      if (form.photo)
-        photoUrl = await ProductModel.uploadPhoto(
-          form.photo,
-          activeOrg.id,
-          productId,
-        );
-
       const currency: ProductCurrency = {
         base_currency: form.base_currency,
         converted_currency: (
@@ -217,8 +173,6 @@ export default function EditItemForm({
       await ProductModel.update(productId, {
         title: form.title.trim(),
         status: form.status as ProductStatus,
-        date: form.date || null,
-        photo_url: photoUrl,
         colors: form.colors,
         sizes: form.sizes,
         material: form.material.trim() || null,
@@ -237,9 +191,9 @@ export default function EditItemForm({
           ? parseInt(form.stock_quantity, 10)
           : 100,
         to_optimize: form.to_optimize,
+        shopify_initial_status: form.shopify_initial_status,
       });
 
-      if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
       onNavigate("products-list");
     } catch (err) {
       setErrorMsg(
@@ -270,8 +224,6 @@ export default function EditItemForm({
       </div>
     );
   }
-
-  const photoDisplay = form.photoPreview ?? form.existingPhotoUrl;
 
   return (
     <div className="animate-fade-in">
@@ -306,8 +258,8 @@ export default function EditItemForm({
           <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
             Basic Info
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div className="sm:col-span-2 lg:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="sm:col-span-2">
               <Label htmlFor="edit-title">
                 Title <span className="text-red-400">*</span>
               </Label>
@@ -345,29 +297,6 @@ export default function EditItemForm({
               </div>
             </div>
             <div>
-              <Label htmlFor="edit-date">Date</Label>
-              <Input
-                id="edit-date"
-                type="date"
-                value={form.date}
-                onChange={(e) => set("date", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-status">Status</Label>
-              <select
-                id="edit-status"
-                className={selectClass}
-                value={form.status}
-                onChange={(e) => set("status", e.target.value)}
-              >
-                <option value="DRAFT">Draft</option>
-                <option value="NOT_IMPORTED">Not Imported</option>
-                <option value="READY_TO_IMPORT">Ready to Import</option>
-                <option value="ALREADY_IMPORTED">Already Imported</option>
-              </select>
-            </div>
-            <div>
               <Label htmlFor="edit-gender">Gender</Label>
               <select
                 id="edit-gender"
@@ -399,58 +328,6 @@ export default function EditItemForm({
               </select>
             </div>
           </div>
-        </section>
-
-        <section className="card p-6">
-          <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
-            Photo
-          </h2>
-          {photoDisplay ? (
-            <div className="relative w-36 h-36 rounded-xl overflow-hidden border border-ds-border group">
-              <img
-                src={photoDisplay}
-                alt="preview"
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={removePhoto}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-[#0B0F14]/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X size={11} className="text-white" />
-              </button>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-ds-border rounded-xl cursor-pointer hover:border-ds-accent/50 hover:bg-ds-surface2/50 transition-all">
-              <Upload size={20} className="text-ds-muted mb-2" />
-              <span className="text-ds-muted text-sm">
-                Click to upload photo
-              </span>
-              <span className="text-ds-muted text-xs mt-1">
-                PNG, JPG, WEBP up to 10MB
-              </span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhoto}
-              />
-            </label>
-          )}
-          {photoDisplay && (
-            <label className="mt-3 flex items-center gap-2 cursor-pointer text-xs text-ds-accent hover:text-ds-accentHover transition-colors w-fit">
-              <Upload size={12} />
-              Replace photo
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhoto}
-              />
-            </label>
-          )}
         </section>
 
         <section className="card p-6">
@@ -674,6 +551,65 @@ export default function EditItemForm({
             value={form.note}
             onChange={(e) => set("note", e.target.value)}
           />
+        </section>
+
+        <section className="card p-6">
+          <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
+            Status
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: "DRAFT", label: "Draft", desc: "Saved but not queued for import." },
+              { value: "READY_TO_IMPORT", label: "Ready to Import", desc: "Queued for Shopify import." },
+            ] as const).map(({ value, label, desc }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => set("status", value)}
+                className={`flex flex-col items-start px-4 py-3.5 rounded-xl border text-left transition-all ${
+                  form.status === value
+                    ? "border-ds-accent/60 bg-ds-accent/[0.08] shadow-accent-glow"
+                    : "border-ds-border bg-ds-surface2 hover:border-ds-border/80 hover:bg-ds-hover"
+                }`}
+              >
+                <span className={`text-sm font-semibold ${form.status === value ? "text-ds-accent" : "text-ds-text2"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-ds-muted mt-0.5">{desc}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="card p-6">
+          <h2 className="text-ds-text2 text-xs font-semibold uppercase tracking-widest mb-5">
+            Shopify Listing Status
+          </h2>
+          <p className="text-ds-muted text-xs mb-4">
+            After the automated flow lists this product on Shopify, it will be created with this status.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: "DRAFT", label: "Draft", desc: "Listed privately, not visible in store." },
+              { value: "PUBLISH", label: "Publish", desc: "Listed publicly, visible to customers." },
+            ] as const).map(({ value, label, desc }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => set("shopify_initial_status", value)}
+                className={`flex flex-col items-start px-4 py-3.5 rounded-xl border text-left transition-all ${
+                  form.shopify_initial_status === value
+                    ? "border-ds-accent/60 bg-ds-accent/[0.08] shadow-accent-glow"
+                    : "border-ds-border bg-ds-surface2 hover:border-ds-border/80 hover:bg-ds-hover"
+                }`}
+              >
+                <span className={`text-sm font-semibold ${form.shopify_initial_status === value ? "text-ds-accent" : "text-ds-text2"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-ds-muted mt-0.5">{desc}</span>
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="card p-6">

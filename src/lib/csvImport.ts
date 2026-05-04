@@ -160,5 +160,6 @@ export function toDatabaseRow(row: CsvRowParsed, organizationId: string, created
     shopify_admin_url: null,
     use_competitor_title: false,
     to_optimize: false,
+    shopify_initial_status: 'DRAFT' as const,
   };
 }
